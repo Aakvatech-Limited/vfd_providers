@@ -171,7 +171,7 @@ def post_fiscal_receipt(doc, method="POST"):
         vat_rate_code = tax_map[vat_rate_id]
         if vat_rate_code == "A":
             # Check if the absolute difference between base_net_amount and base_amount is less than 0.1%
-            if round(abs(1 - (item.base_amount / item.base_net_amount))) == 0:
+            if round(abs(1 - (item.base_amount / item.base_net_amount)) * 10) == 0:
                 # both amounts are same if the price is exclusive of VAT
                 sp = item.base_net_amount * 1.18
             else:
