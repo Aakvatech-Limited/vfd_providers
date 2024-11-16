@@ -211,8 +211,8 @@ def send_total_vfd_request(
                 headers=headers,
                 timeout=500,
             )
-            if res.ok:
-                data = json.loads(res.text)
+            if res.ok or res.status_code == 409:
+                data = json.loads(res.text) if res.ok else json.loads(res.text)["data"]
                 frappe.log_error(
                     title="Send Request OK",
                     message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}",
@@ -223,7 +223,8 @@ def send_total_vfd_request(
                     title="Send Request Error",
                     message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}\n{payload}",
                 )
-                frappe.throw(f"Error is {res.text}")
+                frappe.throw(f"Error is {res.status_code}: {res.text}")
+
             if vfd_provider_posting_doc:
                 vfd_provider_posting_doc.req_headers = (
                     json.dumps(headers, ensure_ascii=False)
@@ -235,7 +236,7 @@ def send_total_vfd_request(
                     .replace("\\'", "'")
                     .replace('\\"', '"')
                 )
-                vfd_provider_posting_doc.ackcode = data["status"]
+                vfd_provider_posting_doc.ackcode = data["status"] or 0
                 vfd_provider_posting_doc.ackmsg = (
                     str(data).replace("\\'", "'").replace('\\"', '"')
                 )
