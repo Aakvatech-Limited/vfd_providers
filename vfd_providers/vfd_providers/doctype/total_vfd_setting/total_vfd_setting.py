@@ -100,7 +100,11 @@ def post_fiscal_receipt(doc, method="POST"):
         "payments": [
             {
                 "type": "invoice",
-                "amount": doc.base_grand_total,
+                "amount": (
+                    doc.base_total
+                    if doc.base_grand_total < doc.base_total
+                    else doc.base_grand_total
+                ),
             }
         ],
         "items": items,
