@@ -243,6 +243,11 @@ def post_fiscal_receipt(doc, method="POST"):
             "vfd_verification_url",
             data.get("verificationUrl"),
         )
+        # Add invoiceId into the doc comments:
+        doc.add_comment(
+            "Comment",
+            f"VFD Invoice ID: {data.get('invoiceId')}",
+        )
         frappe.db.commit()
     return data
 
