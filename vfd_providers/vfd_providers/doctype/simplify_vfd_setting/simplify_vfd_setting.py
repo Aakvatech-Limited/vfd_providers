@@ -184,6 +184,7 @@ def post_fiscal_receipt(doc, method="POST"):
             "mobileNumber": "",
             "email": "",
         },
+        "invoiceAmountType": "INCLUSIVE",
         "items": items,
         "payments": [
             {
