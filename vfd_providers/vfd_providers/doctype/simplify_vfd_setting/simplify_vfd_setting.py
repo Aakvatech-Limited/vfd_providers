@@ -14,6 +14,7 @@ class SimplifyVFDSetting(Document):
     pass
 
 
+@frappe.whitelist()
 def get_bearer_token(doc, method="POST"):
     """Get bearer token from Simplify VFD
 
@@ -47,6 +48,7 @@ def get_bearer_token(doc, method="POST"):
     frappe.db.commit()
 
 
+@frappe.whitelist()
 def refresh_bearer_token(doc, method="POST"):
     """Refresh bearer token from Simplify VFD
 
