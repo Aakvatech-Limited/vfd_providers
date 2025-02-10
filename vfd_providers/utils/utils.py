@@ -46,6 +46,55 @@ def autogenerate_vfd(doc, method):
         generate_tra_vfd(docname=doc.name, sinv_doc=doc, method=method)
 
 
+def posting_all_vfd_invoices():
+    if frappe.local.flags.vfd_posting:
+        frappe.log_error(_("VFD Posting Flag found", "VFD Posting Flag found"))
+        return
+    
+    frappe.local.flags.vfd_posting = True
+
+    companies = frappe.get_all("Company", pluck="name")
+    for company in companies:
+        comp_vfd_provider = None
+        if frappe.db.exists("Company VFD Provider", company):
+            comp_vfd_provider = frappe.get_cached_doc("Company VFD Provider", company)
+        else:
+            continue
+
+        vfd_provider = frappe.get_cached_doc("VFD Provider", comp_vfd_provider.vfd_provider)
+
+        vfd_provider_settings = vfd_provider.vfd_provider_settings
+        if not vfd_provider_settings:
+            continue
+
+        invoices = frappe.db.get_all(
+            "Sales Invoice",
+            filters={
+                "docstatus": 1,
+                "company": company,
+                "is_not_vfd_invoice": 0,
+                "vfd_status": ["not in", ["Sent", "Success"]],
+            }
+        )
+
+        for invoice in invoices:
+            doc = frappe.get_doc("Sales Invoice", invoice.name)
+
+            if vfd_provider.name == "VFDPlus":
+                vfdplus_post_fiscal_receipt(doc, "POST")
+            
+            elif vfd_provider.name == "TotalVFD":
+                total_vfd_post_fiscal_receipt(doc, "POST")
+            
+            elif vfd_provider.name == "SimplifyVFD":
+                simplify_vfd_post_fiscal_receipt(doc, "POST")
+
+            else:
+                continue
+    
+    frappe.local.flags.vfd_posting = False
+
+
 def clean_and_update_tax_id_info(doc, method):
     cleaned_tax_id = "".join(char for char in (doc.tax_id or "") if char.isdigit())
     doc.tax_id = cleaned_tax_id
