@@ -10,7 +10,7 @@ from frappe.utils import nowdate, nowtime, format_datetime, flt
 import datetime
 
 
-class SimplifyVFDSetting(Document):
+class SimplifyVFDSettings(Document):
     pass
 
 
@@ -21,7 +21,7 @@ def get_bearer_token(doc, method="POST"):
     Parameters
     ----------
     doc : object
-    Python object which is expected to be from Simplify VFD Setting doctype.
+    Python object which is expected to be from Simplify VFD Settings doctype.
     method : str
     Method name which is calling this function. e.g. POST, validate, on_update, etc.
 
@@ -34,6 +34,7 @@ def get_bearer_token(doc, method="POST"):
         password = doc.get_password("password")
     else:
         frappe.throw(_("Username and Password are required!"))
+    
     payload = {
         "username": username,
         "password": password,
@@ -55,7 +56,7 @@ def refresh_bearer_token(doc, method="POST"):
     Parameters
     ----------
     doc : object
-    Python object which is expected to be from Simplify VFD Setting doctype.
+    Python object which is expected to be from Simplify VFD Settings doctype.
     method : str
     Method name which is calling this function. e.g. POST, validate, on_update, etc.
 
@@ -65,6 +66,7 @@ def refresh_bearer_token(doc, method="POST"):
     """
     if not doc.refresh_token:
         frappe.throw(_("Username and Password are required!"))
+    
     payload = {
         "refresh_token": doc.refresh_token,
     }
@@ -93,14 +95,15 @@ def post_fiscal_receipt(doc, method="POST"):
     -------
     Nothing
     """
-    simplify_vfd_setting = frappe.get_doc("Simplify VFD Setting", doc.company)
+    simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
     doc.vfd_date = doc.vfd_date or nowdate()
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
 
-    if simplify_vfd_setting.is_vat_grouped:
+    if simplify_vfd_settings.is_vat_grouped:
         vat_grouped = 1
     else:
         vat_grouped = 0
+    
     items = []
     vat_group_totals = {}
     tax_map = {
@@ -260,7 +263,7 @@ def send_simplify_vfd_request(
     company,
     payload=None,
     type="GET",
-    simplify_vfd_setting=None,
+    simplify_vfd_settings=None,
     vfd_provider_posting_doc=None,
 ):
     """Send request to Simplify VFD API
@@ -274,8 +277,8 @@ def send_simplify_vfd_request(
     Payload to send to Simplify VFD API
     type : str
     Type of request to make. e.g. "GET", "POST", "PUT", etc.
-    simplify_vfd_setting : object
-    Python object which is expected to be from Simplify VFD Setting doctype.
+    simplify_vfd_settings : object
+    Python object which is expected to be from Simplify VFD Settings doctype.
     vfd_provider_posting_doc : object
     Python object which is expected to be from VFD Provider Posting doctype.
 
@@ -287,8 +290,8 @@ def send_simplify_vfd_request(
     simplify_vfd = frappe.get_doc("VFD Provider", "SimplifyVFD")
     if not simplify_vfd:
         frappe.throw(_("Simplify VFD is not setup!"))
-    if not simplify_vfd_setting:
-        simplify_vfd_setting = frappe.get_cached_doc("Simplify VFD Setting", company)
+    if not simplify_vfd_settings:
+        simplify_vfd_settings = frappe.get_cached_doc("Simplify VFD Settings", company)
     url = (
         simplify_vfd.base_url
         + frappe.get_list(
@@ -299,7 +302,7 @@ def send_simplify_vfd_request(
         )[0].value
     )
     headers = {
-        "Authorization": "Bearer " + simplify_vfd_setting.get_password("bearer_token"),
+        "Authorization": "Bearer " + simplify_vfd_settings.get_password("bearer_token"),
         "accept": "application/json",
         "Content-Type": "application/json",
     }

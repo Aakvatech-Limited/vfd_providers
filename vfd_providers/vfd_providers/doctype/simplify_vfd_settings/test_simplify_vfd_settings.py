@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestSimplifyVFDSetting(FrappeTestCase):
+class TestSimplifyVFDSettings(FrappeTestCase):
     pass
