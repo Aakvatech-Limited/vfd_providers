@@ -1,53 +1,39 @@
 # Copyright (c) 2023, Aakvatech Limited and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
 from frappe.model.document import Document
 from time import sleep
 import frappe, json, requests
 from frappe import _
-from frappe.utils import nowdate, nowtime, format_datetime, flt
+from frappe.utils import nowdate, nowtime, format_datetime, flt, now_datetime, add_to_date
 import datetime
 
 
 class SimplifyVFDSettings(Document):
-    pass
+    @frappe.whitelist()
+    def get_bearer_token(self):
+        """Get bearer token from Simplify VFD"""
 
+        if not self.username or not self.password:
+            frappe.throw(_("Username and Password are required!"))
+        
+        payload = {
+            "username": self.username,
+            "password": self.get_password(),
+        }
 
-@frappe.whitelist()
-def get_bearer_token(doc, method="POST"):
-    """Get bearer token from Simplify VFD
+        data = send_simplify_vfd_request("login", self.company, json.dumps(payload), "POST")
+        token = data.get("token")
+        refresh_token = data.get("refresh_token")
+        token_expires = add_to_date(now_datetime(), minutes=20)
 
-    Parameters
-    ----------
-    doc : object
-    Python object which is expected to be from Simplify VFD Settings doctype.
-    method : str
-    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+        self.db_set("bearer_token", token)
+        self.db_set("refresh_token", refresh_token)
+        self.db_set("token_expires", token_expires)
+        frappe.db.commit()
 
-    Returns
-    -------
-    Nothing
-    """
-    if doc.username and doc.password:
-        username = doc.username
-        password = doc.get_password("password")
-    else:
-        frappe.throw(_("Username and Password are required!"))
-    
-    payload = {
-        "username": username,
-        "password": password,
-    }
-
-    data = send_simplify_vfd_request("login", doc.company, json.dumps(payload), "POST")
-    token = data.get("token")
-    refresh_token = data.get("refresh_token")
-    doc.set_password("bearer_token", token)
-    doc.set_password("refresh_token", refresh_token)
-    doc.save()
-    frappe.db.commit()
-
+        return True
 
 @frappe.whitelist()
 def refresh_bearer_token(doc, method="POST"):
@@ -78,6 +64,7 @@ def refresh_bearer_token(doc, method="POST"):
     refresh_token = data.get("refresh_token")
     doc.set_password("bearer_token", token)
     doc.set_password("refresh_token", refresh_token)
+    doc.flags.ignore_permissions = True
     doc.save()
     frappe.db.commit()
 
@@ -287,25 +274,21 @@ def send_simplify_vfd_request(
     data : dict
     Dictionary with response from Simplify VFD API
     """
-    simplify_vfd = frappe.get_doc("VFD Provider", "SimplifyVFD")
-    if not simplify_vfd:
-        frappe.throw(_("Simplify VFD is not setup!"))
+    simplify_vfd = frappe.get_cached_doc("VFD Provider", "SimplifyVFD")
+
     if not simplify_vfd_settings:
-        simplify_vfd_settings = frappe.get_cached_doc("Simplify VFD Settings", company)
-    url = (
-        simplify_vfd.base_url
-        + frappe.get_list(
-            "VFD Provider Attribute",
-            filters={"parent": "SimplifyVFD", "key": call_type},
-            fields=["value"],
-            ignore_permissions=True,
-        )[0].value
-    )
+        simplify_vfd_settings = frappe.get_cached_doc(simplify_vfd.vfd_provider_settings, company)
+    
+    simplify_vfd_endpoint = [row for row in simplify_vfd.attributes if row.key == call_type][0].value
+
+    url = f"{simplify_vfd.base_url.strip()}{simplify_vfd_endpoint.strip()}"
+
     headers = {
-        "Authorization": "Bearer " + simplify_vfd_settings.get_password("bearer_token"),
         "accept": "application/json",
         "Content-Type": "application/json",
     }
+    if call_type != 'login':
+        headers["Authorization"] = f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
 
     data = None
     for i in range(3):
@@ -319,10 +302,6 @@ def send_simplify_vfd_request(
             )
             if res.ok:
                 data = json.loads(res.text)
-                frappe.log_error(
-                    title="Send Request OK",
-                    message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}",
-                )
             else:
                 data = []
                 frappe.log_error(
@@ -330,6 +309,7 @@ def send_simplify_vfd_request(
                     message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}\n{payload}",
                 )
                 frappe.throw(f"Error is {res.text}")
+            
             if vfd_provider_posting_doc:
                 vfd_provider_posting_doc.req_headers = (
                     json.dumps(headers, ensure_ascii=False)
@@ -356,6 +336,5 @@ def send_simplify_vfd_request(
                     message=frappe.get_traceback(),
                     title=str(e)[:140] if e else "Send Simplify VFD Request Error",
                 )
-                frappe.throw(f"Connection failure is {res.text}")
                 raise e
     return data
