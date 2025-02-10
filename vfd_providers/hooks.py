@@ -133,6 +133,9 @@ scheduler_events = {
         "*/10 * * * *": [
             "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_token"
         ],
+        "*/15 * * * *": [
+            "vfd_providers.utils.utils.posting_all_vfd_invoices",
+        ],
     }
 }
 
