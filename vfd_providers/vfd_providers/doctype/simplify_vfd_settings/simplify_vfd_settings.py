@@ -43,7 +43,7 @@ class SimplifyVFDSettings(Document):
             frappe.throw(_("Refresh Token is not found, Please set username and password and generate the token!"))
         
         payload = {
-            "refresh_token": self.get_passord("refresh_token"),
+            "refresh_token": self.get_password("refresh_token"),
         }
 
         data = send_simplify_vfd_request(
@@ -61,14 +61,19 @@ class SimplifyVFDSettings(Document):
 
         return True
 
-@frappe.whitelist()
+
 def get_token():
     """Refresh bearer token from Simplify VFD"""
 
     setting_companies = frappe.get_all("Simplify VFD Settings", fields=["name"], pluck='name')
 
     for company in setting_companies:
-        doc = frappe.get_cached_doc("Simplify VFD Settings", company)
+        doc = None
+        if frappe.db.exists("Simplify VFD Settings", company):
+            doc = frappe.get_cached_doc("Simplify VFD Settings", company)
+        else:
+            continue
+        
         if doc.token_expires and doc.token_expires <= now_datetime():
             doc.refresh_bearer_token()
         
@@ -87,16 +92,15 @@ def post_fiscal_receipt(doc, method="POST"):
     Nothing
     """
     simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
+    if simplify_vfd_settings.token_expires and simplify_vfd_settings.token_expires <= now_datetime():
+        simplify_vfd_settings.refresh_bearer_token()
+    
     doc.vfd_date = doc.vfd_date or nowdate()
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
-
-    if simplify_vfd_settings.is_vat_grouped:
-        vat_grouped = 1
-    else:
-        vat_grouped = 0
     
     items = []
-    vat_group_totals = {}
+    payments = []
+
     tax_map = {
         "1": "STANDARD",
         "2": "SPECIAL_RATE",
@@ -104,64 +108,6 @@ def post_fiscal_receipt(doc, method="POST"):
         "4": "SPECIAL_RELIEF",
         "5": "EXEMPTED",
     }
-    for item in doc.items:
-        vat_rate_id = frappe.get_cached_value(
-            "Item Tax Template", item.item_tax_template, "vfd_taxcode"
-        )[:1]
-        vat_group = tax_map[vat_rate_id]
-        if vat_group == "A":
-            if item.base_net_amount == item.base_amount:
-                # both amounts are same if the price is exclusive of VAT
-                price = flt(item.base_net_amount * 1.18, precision=2)
-            else:
-                price = flt(item.base_amount, precision=2)
-        else:
-            price = flt(item.base_amount, precision=2)
-        # Check if the VAT group already exists in the dictionary; if not, initialize it
-        if vat_group not in vat_group_totals:
-            vat_group_totals[vat_group] = 0
-
-        # Add the calculated price to the respective VAT group's total
-        vat_group_totals[vat_group] += flt(price, precision=2)
-        items.append(
-            {
-                "id": item.item_code,
-                "name": item.item_name,
-                "price": price,
-                "qty": item.qty,
-                "vatGroup": vat_group,
-                "discount": 0.0,
-            }
-        )
-    # Convert the aggregated totals into a list of dictionaries
-    vat_group_totals_list = [
-        {"vat_group": vat_group, "total_price": total_price}
-        for vat_group, total_price in vat_group_totals.items()
-    ]
-
-    if vat_grouped:
-        # Re-create items list based on VAT group totals
-        items = []
-        for vat_group_entry in vat_group_totals_list:
-            items.append(
-                {
-                    "description": f"""Items in VAT Group {vat_group_entry["vat_group"]}""",
-                    "quantity": 1,
-                    "unitAmount": flt(vat_group_entry["total_price"], precision=2),
-                    "discountRate": 0.0,
-                    "taxType": vat_group_entry["vat_group"],
-                }
-            )
-
-    vfd_cust_id_type = doc.vfd_cust_id_type[:1] or "6"
-    """VFD Customer ID Type Mapping
-        1- TAX_IDENTIFICATION_NUMBER
-        2- DRIVING_LICENCE
-        3- VOTERS_NUMBER
-        4- PASSPORT
-        5- NATIONAL_IDENTIFICATION_AUTHORITY
-        6- NO_IDENTIFICATION
-    """
     vfd_cust_id_type_map = {
         "1": "TAX_IDENTIFICATION_NUMBER",
         "2": "DRIVING_LICENCE",
@@ -170,28 +116,48 @@ def post_fiscal_receipt(doc, method="POST"):
         "5": "NATIONAL_IDENTIFICATION_AUTHORITY",
         "6": "NO_IDENTIFICATION",
     }
+
+    for item in doc.items:
+        vfd_taxcode = frappe.get_cached_value(
+            "Item Tax Template", item.item_tax_template, "vfd_taxcode"
+        )
+
+        vat_rate_id = vfd_taxcode[:1] if vfd_taxcode else "1"
+
+        vat_group = tax_map[vat_rate_id]
+
+        items.append(
+            {
+                "description": f"{item.item_code} - {item.item_name}",
+                "quantity": 1,
+                "unitAmount": item.amount,
+                "discountRate": 0.0,
+                "taxType": vat_group,
+            }
+        )
+
+    for payment in doc.payments:
+        payments.append(
+            {
+                "type": payment.mode_of_payment.upper(),
+                "amount": payment.amount,
+            }
+        )
+    
+    vfd_cust_id_type = doc.vfd_cust_id_type[:1] if doc.vfd_cust_id_type else "6"
     payload = {
-        "dateTime": doc.vfd_date,
+        "dateTime": str(doc.vfd_date),
         "customer": {
             "identificationType": vfd_cust_id_type_map[vfd_cust_id_type],
             "identificationNumber": doc.vfd_cust_id if vfd_cust_id_type != "6" else "",
-            "vatRegistrationNumber": doc.vat_id or "",
+            "vatRegistrationNumber": doc.tax_id or "",
             "name": doc.customer_name,
             "mobileNumber": "",
             "email": "",
         },
         "invoiceAmountType": "INCLUSIVE",
         "items": items,
-        "payments": [
-            {
-                "type": "INVOICE",
-                "amount": (
-                    doc.base_total
-                    if doc.base_grand_total < doc.base_total
-                    else doc.base_grand_total
-                ),
-            }
-        ],
+        "payments": payments,
         "partnerInvoiceId": doc.name,
     }
 
@@ -204,49 +170,60 @@ def post_fiscal_receipt(doc, method="POST"):
         doc.company,
         payload,
         "POST",
-        vfd_provider_posting_doc=vfd_provider_posting_doc,
+        for_vfd_posting=True,
     )
 
-    dt_object = datetime.strptime(data.get("issuedAt"), "%Y-%m-%d %H:%M:%S")
+    res_data = data.get("message")
+    if data.get("status_code") == 200:
+        dt_object = datetime.strptime(res_data.get("issuedAt"), "%Y-%m-%d %H:%M:%S")
 
-    # Extract date and time
-    date_part = dt_object.date()
-    time_part = dt_object.time()
-
+        # Extract date and time
+        date_part = dt_object.date()
+        time_part = dt_object.time()
+    
+    else:
+        date_part = nowdate()
+        time_part = nowtime()
+   
     vfd_provider_posting_doc.sales_invoice = doc.name
     vfd_provider_posting_doc.rctnum = doc.vfd_rctvnum
+    vfd_provider_posting_doc.req_headers = str(data.get("headers"))
+    vfd_provider_posting_doc.ackmsg = str(res_data)
+    vfd_provider_posting_doc.ackcode = data.get("status_code")
     vfd_provider_posting_doc.date = date_part
     vfd_provider_posting_doc.time = time_part
-    vfd_provider_posting_doc.ackmsg = str(data)
+
     vfd_provider_posting_doc.save()
 
     if method == "on_submit":
-        doc.vfd_status = "Success"
-        doc.vfd_verification_url = data.get("verificationUrl")
-        doc.vfd_rctvnum = data.get("verificationCode")
+        doc.vfd_status = "Success" if data.get("status_code") == 200 else "Failed"
+        doc.vfd_verification_url = res_data.get("verificationUrl")
+        doc.vfd_rctvnum = res_data.get("verificationCode")
         doc.vfd_date = date_part
         doc.vfd_time = time_part
-    elif method == "POST":
-        frappe.db.set_value(
-            "Sales Invoice", doc.name, "vfd_rctvnum", data.get("verificationCode")
-        )
-        frappe.db.set_value("Sales Invoice", doc.name, "vfd_status", "Success")
-
-        frappe.db.set_value("Sales Invoice", doc.name, "vfd_date", date_part)
-        frappe.db.set_value("Sales Invoice", doc.name, "vfd_time", time_part)
-        frappe.db.set_value(
-            "Sales Invoice",
-            doc.name,
-            "vfd_verification_url",
-            data.get("verificationUrl"),
-        )
-        # Add invoiceId into the doc comments:
+        doc.vfd_posting_info = vfd_provider_posting_doc.name
         doc.add_comment(
             "Comment",
-            f"VFD Invoice ID: {data.get('invoiceId')}",
+            f"VFD Invoice ID: {res_data.get('invoiceId')}",
+        )
+
+    elif method == "POST":
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, {
+                "vfd_rctvnum": res_data.get("verificationCode"),
+                "vfd_status": "Success",
+                "vfd_verification_url": res_data.get("verificationUrl"),
+                "vfd_date": date_part,
+                "vfd_time": time_part,
+                "vfd_posting_info": vfd_provider_posting_doc.name,
+            }
+        )
+        doc.add_comment(
+            "Comment",
+            f"VFD Invoice ID: {res_data.get('invoiceId')}",
         )
         frappe.db.commit()
-    return data
+    return res_data
 
 
 def send_simplify_vfd_request(
@@ -255,7 +232,7 @@ def send_simplify_vfd_request(
     payload=None,
     type="GET",
     simplify_vfd_settings=None,
-    vfd_provider_posting_doc=None,
+    for_vfd_posting=False,
 ):
     """Send request to Simplify VFD API
     Parameters
@@ -270,8 +247,8 @@ def send_simplify_vfd_request(
     Type of request to make. e.g. "GET", "POST", "PUT", etc.
     simplify_vfd_settings : object
     Python object which is expected to be from Simplify VFD Settings doctype.
-    vfd_provider_posting_doc : object
-    Python object which is expected to be from VFD Provider Posting doctype.
+    for_vfd_posting : Boolean
+    If True, will return headers along with response data. Default is False.
 
     Returns
     -------
@@ -295,6 +272,7 @@ def send_simplify_vfd_request(
         headers["Authorization"] = f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
 
     data = None
+    status_code = None
     for i in range(3):
         try:
             res = requests.request(
@@ -306,30 +284,16 @@ def send_simplify_vfd_request(
             )
             if res.ok:
                 data = json.loads(res.text)
+                status_code = res.status_code
             else:
                 data = []
+                status_code = res.status_code
                 frappe.log_error(
                     title="Send Request Error",
                     message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}\n{payload}",
                 )
                 frappe.throw(f"Error is {res.text}")
             
-            if vfd_provider_posting_doc:
-                vfd_provider_posting_doc.req_headers = (
-                    json.dumps(headers, ensure_ascii=False)
-                    .replace("\\'", "'")
-                    .replace('\\"', '"')
-                )
-                vfd_provider_posting_doc.req_data = (
-                    json.dumps(payload, ensure_ascii=False)
-                    .replace("\\'", "'")
-                    .replace('\\"', '"')
-                )
-                vfd_provider_posting_doc.ackcode = data["status"]
-                vfd_provider_posting_doc.ackmsg = (
-                    str(data).replace("\\'", "'").replace('\\"', '"')
-                )
-
             break
         except Exception as e:
             sleep(3 * i + 1)
@@ -341,4 +305,13 @@ def send_simplify_vfd_request(
                     title=str(e)[:140] if e else "Send Simplify VFD Request Error",
                 )
                 raise e
+    
+    if for_vfd_posting:
+        data = {
+            "message": data,
+            "headers": headers,
+            "status_code": res.status_code,
+        }
+        return data
+    
     return data
