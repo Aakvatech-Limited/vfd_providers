@@ -13,19 +13,20 @@
   "username",
   "password",
   "column_break_durx",
-  "get_token",
-  "bearer_token",
-  "refresh_token",
-  "token_expires",
-  "section_break_rklsa",
-  "column_break_pdoy",
   "tin",
   "vrn",
   "start_date",
-  "column_break_kdxy",
+  "column_break_qpkt",
   "company_name",
   "alias_name",
-  "is_vat_grouped"
+  "is_vat_grouped",
+  "section_break_rklsa",
+  "column_break_pdoy",
+  "bearer_token",
+  "column_break_kdxy",
+  "get_token",
+  "refresh_token",
+  "token_expires"
  ],
  "fields": [
   {
@@ -126,10 +127,14 @@
    "fieldname": "get_token",
    "fieldtype": "Button",
    "label": "Get Token"
+  },
+  {
+   "fieldname": "column_break_qpkt",
+   "fieldtype": "Column Break"
   }
  ],
  "links": [],
- "modified": "2025-02-10 14:41:51.919321",
+ "modified": "2025-02-10 16:34:36.006865",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "Simplify VFD Settings",
