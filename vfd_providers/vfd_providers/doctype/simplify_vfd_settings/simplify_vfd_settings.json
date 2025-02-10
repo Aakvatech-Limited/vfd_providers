@@ -73,7 +73,7 @@
    "fieldtype": "Section Break"
   },
   {
-   "default": "0",
+   "default": "1",
    "fieldname": "is_vat_grouped",
    "fieldtype": "Check",
    "label": "Is VAT Grouped"
@@ -104,10 +104,10 @@
   }
  ],
  "links": [],
- "modified": "2025-02-01 00:33:56.481997",
+ "modified": "2025-02-10 10:33:53.605781",
  "modified_by": "Administrator",
  "module": "VFD Providers",
- "name": "Simplify VFD Setting",
+ "name": "Simplify VFD Settings",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
