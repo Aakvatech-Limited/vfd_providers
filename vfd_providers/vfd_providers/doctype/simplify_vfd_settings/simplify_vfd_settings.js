@@ -5,4 +5,18 @@ frappe.ui.form.on('Simplify VFD Settings', {
 	// refresh: function(frm) {
 
 	// }
+	get_token: (frm) => {
+		frappe.call({
+			method: "get_bearer_token",
+			doc: frm.doc,
+			args: {},
+			freeze: true,
+			freeze_message: __("Please Wait..."),
+			callback: (r) => {
+				if (r.message) {
+					frm.refresh();
+				}
+			}
+		})
+	},
 });
