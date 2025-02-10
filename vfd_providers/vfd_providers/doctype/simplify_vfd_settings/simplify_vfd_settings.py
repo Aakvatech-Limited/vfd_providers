@@ -26,48 +26,52 @@ class SimplifyVFDSettings(Document):
         data = send_simplify_vfd_request("login", self.company, json.dumps(payload), "POST")
         token = data.get("token")
         refresh_token = data.get("refresh_token")
-        token_expires = add_to_date(now_datetime(), minutes=20)
+        token_expires = add_to_date(now_datetime(), minutes=25)
 
         self.db_set("bearer_token", token)
         self.db_set("refresh_token", refresh_token)
         self.db_set("token_expires", token_expires)
         frappe.db.commit()
 
+        self.reload()
+        return True
+    
+    def refresh_bearer_token(self):
+        """Refresh bearer token from Simplify VFD"""
+
+        if not self.refresh_token:
+            frappe.throw(_("Refresh Token is not found, Please set username and password and generate the token!"))
+        
+        payload = {
+            "refresh_token": self.get_passord("refresh_token"),
+        }
+
+        data = send_simplify_vfd_request(
+            "refresh", self.company, json.dumps(payload), "POST"
+        )
+        token = data.get("token")
+        refresh_token = data.get("refresh_token")
+        token_expires = add_to_date(now_datetime(), minutes=20)
+        self.db_set("bearer_token", token)
+        self.db_set("refresh_token", refresh_token)
+        self.db_set("token_expires", token_expires)
+
+        frappe.db.commit()
+        self.reload()
+
         return True
 
 @frappe.whitelist()
-def refresh_bearer_token(doc, method="POST"):
-    """Refresh bearer token from Simplify VFD
+def get_token():
+    """Refresh bearer token from Simplify VFD"""
 
-    Parameters
-    ----------
-    doc : object
-    Python object which is expected to be from Simplify VFD Settings doctype.
-    method : str
-    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+    setting_companies = frappe.get_all("Simplify VFD Settings", fields=["name"], pluck='name')
 
-    Returns
-    -------
-    Nothing
-    """
-    if not doc.refresh_token:
-        frappe.throw(_("Username and Password are required!"))
-    
-    payload = {
-        "refresh_token": doc.refresh_token,
-    }
-
-    data = send_simplify_vfd_request(
-        "refresh", doc.company, json.dumps(payload), "POST"
-    )
-    token = data.get("token")
-    refresh_token = data.get("refresh_token")
-    doc.set_password("bearer_token", token)
-    doc.set_password("refresh_token", refresh_token)
-    doc.flags.ignore_permissions = True
-    doc.save()
-    frappe.db.commit()
-
+    for company in setting_companies:
+        doc = frappe.get_cached_doc("Simplify VFD Settings", company)
+        if doc.token_expires and doc.token_expires <= now_datetime():
+            doc.refresh_bearer_token()
+        
 
 def post_fiscal_receipt(doc, method="POST"):
     """Post fiscal receipt to Simplify VFD
@@ -287,7 +291,7 @@ def send_simplify_vfd_request(
         "accept": "application/json",
         "Content-Type": "application/json",
     }
-    if call_type != 'login':
+    if call_type not in ['login', 'refresh']:
         headers["Authorization"] = f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
 
     data = None
