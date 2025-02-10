@@ -12,15 +12,19 @@
   "company",
   "username",
   "password",
+  "column_break_durx",
+  "get_token",
   "bearer_token",
   "refresh_token",
+  "token_expires",
+  "section_break_rklsa",
   "column_break_pdoy",
-  "company_name",
-  "alias_name",
   "tin",
   "vrn",
   "start_date",
-  "section_break_rklsa",
+  "column_break_kdxy",
+  "company_name",
+  "alias_name",
   "is_vat_grouped"
  ],
  "fields": [
@@ -60,7 +64,8 @@
    "fieldname": "bearer_token",
    "fieldtype": "Password",
    "label": "Bearer Token",
-   "length": 250
+   "length": 250,
+   "read_only": 1
   },
   {
    "depends_on": "eval: doc.gov_reg_edate",
@@ -91,7 +96,8 @@
   {
    "fieldname": "refresh_token",
    "fieldtype": "Password",
-   "label": "Refresh Token"
+   "label": "Refresh Token",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_pdoy",
@@ -101,10 +107,29 @@
    "fieldname": "details_section",
    "fieldtype": "Section Break",
    "label": "Details"
+  },
+  {
+   "fieldname": "column_break_durx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token_expires",
+   "fieldtype": "Datetime",
+   "label": "Token Expires",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_kdxy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "get_token",
+   "fieldtype": "Button",
+   "label": "Get Token"
   }
  ],
  "links": [],
- "modified": "2025-02-10 10:33:53.605781",
+ "modified": "2025-02-10 14:41:51.919321",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "Simplify VFD Settings",
