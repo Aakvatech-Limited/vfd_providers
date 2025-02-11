@@ -128,23 +128,16 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"vfd_providers.tasks.all"
-# 	],
-# 	"daily": [
-# 		"vfd_providers.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"vfd_providers.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"vfd_providers.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"vfd_providers.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"cron": {
+        "*/10 * * * *": [
+            "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_token"
+        ],
+        "*/15 * * * *": [
+            "vfd_providers.utils.utils.posting_all_vfd_invoices",
+        ],
+    }
+}
 
 # Testing
 # -------

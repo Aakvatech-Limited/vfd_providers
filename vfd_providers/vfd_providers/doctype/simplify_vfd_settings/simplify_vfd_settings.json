@@ -1,0 +1,128 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2024-03-20 18:13:50.657076",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "company",
+  "username",
+  "column_break_qddy",
+  "password",
+  "section_break_rklsa",
+  "column_break_pdoy",
+  "bearer_token",
+  "column_break_kdxy",
+  "get_token",
+  "refresh_token",
+  "token_expires"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "bearer_token",
+   "fieldtype": "Password",
+   "label": "Bearer Token",
+   "length": 250,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_rklsa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "refresh_token",
+   "fieldtype": "Password",
+   "label": "Refresh Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pdoy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "token_expires",
+   "fieldtype": "Datetime",
+   "label": "Token Expires",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_kdxy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "get_token",
+   "fieldtype": "Button",
+   "label": "Get Token"
+  },
+  {
+   "fieldname": "column_break_qddy",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "links": [],
+ "modified": "2025-02-10 23:43:01.645045",
+ "modified_by": "Administrator",
+ "module": "VFD Providers",
+ "name": "Simplify VFD Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1,0 +1,317 @@
+# Copyright (c) 2023, Aakvatech Limited and contributors
+# For license information, please see license.txt
+
+import frappe
+from frappe.model.document import Document
+from time import sleep
+import frappe, json, requests
+from frappe import _
+from frappe.utils import nowdate, nowtime, format_datetime, flt, now_datetime, add_to_date
+import datetime
+
+
+class SimplifyVFDSettings(Document):
+    @frappe.whitelist()
+    def get_bearer_token(self):
+        """Get bearer token from Simplify VFD"""
+
+        if not self.username or not self.password:
+            frappe.throw(_("Username and Password are required!"))
+        
+        payload = {
+            "username": self.username,
+            "password": self.get_password(),
+        }
+
+        data = send_simplify_vfd_request("login", self.company, json.dumps(payload), "POST")
+        token = data.get("token")
+        refresh_token = data.get("refresh_token")
+        token_expires = add_to_date(now_datetime(), minutes=25)
+
+        self.db_set("bearer_token", token)
+        self.db_set("refresh_token", refresh_token)
+        self.db_set("token_expires", token_expires)
+        frappe.db.commit()
+
+        self.reload()
+        return True
+    
+    def refresh_bearer_token(self):
+        """Refresh bearer token from Simplify VFD"""
+
+        if not self.refresh_token:
+            frappe.throw(_("Refresh Token is not found, Please set username and password and generate the token!"))
+        
+        payload = {
+            "refresh_token": self.get_password("refresh_token"),
+        }
+
+        data = send_simplify_vfd_request(
+            "refresh", self.company, json.dumps(payload), "POST"
+        )
+        token = data.get("token")
+        refresh_token = data.get("refresh_token")
+        token_expires = add_to_date(now_datetime(), minutes=20)
+        self.db_set("bearer_token", token)
+        self.db_set("refresh_token", refresh_token)
+        self.db_set("token_expires", token_expires)
+
+        frappe.db.commit()
+        self.reload()
+
+        return True
+
+
+def get_token():
+    """Refresh bearer token from Simplify VFD"""
+
+    setting_companies = frappe.get_all("Simplify VFD Settings", fields=["name"], pluck='name')
+
+    for company in setting_companies:
+        doc = None
+        if frappe.db.exists("Simplify VFD Settings", company):
+            doc = frappe.get_cached_doc("Simplify VFD Settings", company)
+        else:
+            continue
+        
+        if doc.token_expires and doc.token_expires <= now_datetime():
+            doc.refresh_bearer_token()
+        
+
+def post_fiscal_receipt(doc, method="POST"):
+    """Post fiscal receipt to Simplify VFD
+    Parameters
+    ----------
+    doc : object
+    Python object which is expected to be from Sales Invoice doctype.
+    method : str
+    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+
+    Returns
+    -------
+    Nothing
+    """
+    simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
+    if simplify_vfd_settings.token_expires and simplify_vfd_settings.token_expires <= now_datetime():
+        simplify_vfd_settings.refresh_bearer_token()
+    
+    doc.vfd_date = doc.vfd_date or nowdate()
+    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
+    
+    items = []
+    payments = []
+
+    tax_map = {
+        "1": "STANDARD",
+        "2": "SPECIAL_RATE",
+        "3": "ZERO_RATED",
+        "4": "SPECIAL_RELIEF",
+        "5": "EXEMPTED",
+    }
+    vfd_cust_id_type_map = {
+        "1": "TAX_IDENTIFICATION_NUMBER",
+        "2": "DRIVING_LICENCE",
+        "3": "VOTERS_NUMBER",
+        "4": "PASSPORT",
+        "5": "NATIONAL_IDENTIFICATION_AUTHORITY",
+        "6": "NO_IDENTIFICATION",
+    }
+
+    for item in doc.items:
+        vfd_taxcode = frappe.get_cached_value(
+            "Item Tax Template", item.item_tax_template, "vfd_taxcode"
+        )
+
+        vat_rate_id = vfd_taxcode[:1] if vfd_taxcode else "1"
+
+        vat_group = tax_map[vat_rate_id]
+
+        items.append(
+            {
+                "description": f"{item.item_code} - {item.item_name}",
+                "quantity": 1,
+                "unitAmount": item.amount,
+                "discountRate": 0.0,
+                "taxType": vat_group,
+            }
+        )
+
+    for payment in doc.payments:
+        payments.append(
+            {
+                "type": payment.mode_of_payment.upper(),
+                "amount": payment.amount,
+            }
+        )
+    
+    vfd_cust_id_type = doc.vfd_cust_id_type[:1] if doc.vfd_cust_id_type else "6"
+    payload = {
+        "dateTime": str(doc.vfd_date),
+        "customer": {
+            "identificationType": vfd_cust_id_type_map[vfd_cust_id_type],
+            "identificationNumber": doc.vfd_cust_id if vfd_cust_id_type != "6" else "",
+            "vatRegistrationNumber": doc.tax_id or "",
+            "name": doc.customer_name,
+            "mobileNumber": "",
+            "email": "",
+        },
+        "invoiceAmountType": "INCLUSIVE",
+        "items": items,
+        "payments": payments,
+        "partnerInvoiceId": doc.name,
+    }
+
+    payload = json.dumps(payload)
+
+    vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
+
+    data = send_simplify_vfd_request(
+        "createIssuedInvoice",
+        doc.company,
+        payload,
+        "POST",
+        for_vfd_posting=True,
+    )
+
+    res_data = data.get("message")
+    if data.get("status_code") == 200:
+        dt_object = datetime.strptime(res_data.get("issuedAt"), "%Y-%m-%d %H:%M:%S")
+
+        # Extract date and time
+        date_part = dt_object.date()
+        time_part = dt_object.time()
+    
+    else:
+        date_part = nowdate()
+        time_part = nowtime()
+   
+    vfd_provider_posting_doc.sales_invoice = doc.name
+    vfd_provider_posting_doc.rctnum = doc.vfd_rctvnum
+    vfd_provider_posting_doc.req_headers = str(data.get("headers"))
+    vfd_provider_posting_doc.ackmsg = str(res_data)
+    vfd_provider_posting_doc.ackcode = data.get("status_code")
+    vfd_provider_posting_doc.date = date_part
+    vfd_provider_posting_doc.time = time_part
+
+    vfd_provider_posting_doc.save()
+
+    if method == "on_submit":
+        doc.vfd_status = "Success" if data.get("status_code") == 200 else "Failed"
+        doc.vfd_verification_url = res_data.get("verificationUrl")
+        doc.vfd_rctvnum = res_data.get("verificationCode")
+        doc.vfd_date = date_part
+        doc.vfd_time = time_part
+        doc.vfd_posting_info = vfd_provider_posting_doc.name
+        doc.add_comment(
+            "Comment",
+            f"VFD Invoice ID: {res_data.get('invoiceId')}",
+        )
+
+    elif method == "POST":
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, {
+                "vfd_rctvnum": res_data.get("verificationCode"),
+                "vfd_status": "Success",
+                "vfd_verification_url": res_data.get("verificationUrl"),
+                "vfd_date": date_part,
+                "vfd_time": time_part,
+                "vfd_posting_info": vfd_provider_posting_doc.name,
+            }
+        )
+        doc.add_comment(
+            "Comment",
+            f"VFD Invoice ID: {res_data.get('invoiceId')}",
+        )
+        frappe.db.commit()
+    return res_data
+
+
+def send_simplify_vfd_request(
+    call_type,
+    company,
+    payload=None,
+    type="GET",
+    simplify_vfd_settings=None,
+    for_vfd_posting=False,
+):
+    """Send request to Simplify VFD API
+    Parameters
+    ----------
+    call_type : str
+    Type of call to make. e.g. "get_serial_info", "post_fiscal_receipt", "account_info", etc.
+    company : str
+    Company to get Simplify VFD settings from
+    payload : dict
+    Payload to send to Simplify VFD API
+    type : str
+    Type of request to make. e.g. "GET", "POST", "PUT", etc.
+    simplify_vfd_settings : object
+    Python object which is expected to be from Simplify VFD Settings doctype.
+    for_vfd_posting : Boolean
+    If True, will return headers along with response data. Default is False.
+
+    Returns
+    -------
+    data : dict
+    Dictionary with response from Simplify VFD API
+    """
+    simplify_vfd = frappe.get_cached_doc("VFD Provider", "SimplifyVFD")
+
+    if not simplify_vfd_settings:
+        simplify_vfd_settings = frappe.get_cached_doc(simplify_vfd.vfd_provider_settings, company)
+    
+    simplify_vfd_endpoint = [row for row in simplify_vfd.attributes if row.key == call_type][0].value
+
+    url = f"{simplify_vfd.base_url.strip()}{simplify_vfd_endpoint.strip()}"
+
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if call_type not in ['login', 'refresh']:
+        headers["Authorization"] = f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
+
+    data = None
+    status_code = None
+    for i in range(3):
+        try:
+            res = requests.request(
+                method=type,
+                url=url,
+                data=payload if payload else None,
+                headers=headers,
+                timeout=500,
+            )
+            if res.ok:
+                data = json.loads(res.text)
+                status_code = res.status_code
+            else:
+                data = []
+                status_code = res.status_code
+                frappe.log_error(
+                    title="Send Request Error",
+                    message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}\n{payload}",
+                )
+                frappe.throw(f"Error is {res.text}")
+            
+            break
+        except Exception as e:
+            sleep(3 * i + 1)
+            if i != 2:
+                continue
+            else:
+                frappe.log_error(
+                    message=frappe.get_traceback(),
+                    title=str(e)[:140] if e else "Send Simplify VFD Request Error",
+                )
+                raise e
+    
+    if for_vfd_posting:
+        data = {
+            "message": data,
+            "headers": headers,
+            "status_code": res.status_code,
+        }
+        return data
+    
+    return data
