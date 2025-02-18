@@ -35,6 +35,7 @@ def post_fiscal_receipt(doc, method="POST"):
     else:
         vat_grouped = 0
     items = []
+    total_amount = 0
     vat_group_totals = {}
     tax_map = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
     for item in doc.items:
@@ -66,6 +67,7 @@ def post_fiscal_receipt(doc, method="POST"):
                 "discount": 0.0,
             }
         )
+        total_amount += price
     # Convert the aggregated totals into a list of dictionaries
     vat_group_totals_list = [
         {"vat_group": vat_group, "total_price": total_price}
@@ -75,6 +77,7 @@ def post_fiscal_receipt(doc, method="POST"):
     if vat_grouped:
         # Re-create items list based on VAT group totals
         items = []
+        total_amount = 0
         for vat_group_entry in vat_group_totals_list:
             items.append(
                 {
@@ -86,6 +89,7 @@ def post_fiscal_receipt(doc, method="POST"):
                     "discount": 0.0,
                 }
             )
+            total_amount += flt(vat_group_entry["total_price"], precision=2)
 
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] or "6"
     payload = {
@@ -100,11 +104,7 @@ def post_fiscal_receipt(doc, method="POST"):
         "payments": [
             {
                 "type": "invoice",
-                "amount": (
-                    doc.base_total
-                    if doc.base_grand_total < doc.base_total
-                    else doc.base_grand_total
-                ),
+                "amount": total_amount,
             }
         ],
         "items": items,
