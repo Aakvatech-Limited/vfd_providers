@@ -25,6 +25,9 @@ class SimplifyVFDSettings(Document):
 
         data = send_simplify_vfd_request("login", self.company, json.dumps(payload), "POST")
         token = data.get("token")
+        if not token:
+            frappe.throw(_("Invalid username or password!"))
+        
         refresh_token = data.get("refresh_token")
         token_expires = add_to_date(now_datetime(), minutes=25)
 
@@ -51,6 +54,10 @@ class SimplifyVFDSettings(Document):
         )
         token = data.get("token")
         refresh_token = data.get("refresh_token")
+
+        if not token or not refresh_token:
+            frappe.throw(_("Invalid refresh token!"))
+        
         token_expires = add_to_date(now_datetime(), minutes=20)
         self.db_set("bearer_token", token)
         self.db_set("refresh_token", refresh_token)
@@ -126,21 +133,31 @@ def post_fiscal_receipt(doc, method="POST"):
 
         vat_group = tax_map[vat_rate_id]
 
+        price = 0
+        if vat_rate_id == 1 or vat_rate_id == "1":
+            if item.base_net_amount == item.base_amount:
+                # both amounts are same if the price is exclusive of VAT
+                price = flt(item.base_net_amount * 1.18, precision=2)
+            else:
+                price = flt(item.base_amount, precision=2)
+        else:
+            price = flt(item.base_amount, precision=2)
+
         items.append(
             {
                 "description": f"{item.item_code} - {item.item_name}",
-                "quantity": 1,
-                "unitAmount": item.amount,
+                "quantity": item.qty,
+                "unitAmount": price / item.qty,
                 "discountRate": 0.0,
                 "taxType": vat_group,
             }
         )
-
+    
     for payment in doc.payments:
         payments.append(
             {
                 "type": payment.mode_of_payment.upper(),
-                "amount": payment.amount,
+                "amount": payment.base_amount,
             }
         )
     
