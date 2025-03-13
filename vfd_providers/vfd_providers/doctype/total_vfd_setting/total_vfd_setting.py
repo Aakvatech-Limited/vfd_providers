@@ -127,7 +127,7 @@ def post_fiscal_receipt(doc, method="POST"):
     vfd_provider_posting_doc.date = doc.vfd_date
     vfd_provider_posting_doc.time = doc.vfd_time
     vfd_provider_posting_doc.ackmsg = str(data)
-    vfd_provider_posting_doc.save()
+    vfd_provider_posting_doc.save(ignore_permissions=True)
 
     if method == "on_submit":
         doc.vfd_status = "Success"

@@ -253,7 +253,7 @@ def post_fiscal_receipt(doc, method="POST"):
     vfd_provider_posting_doc.rctnum = doc.vfd_rctvnum
     vfd_provider_posting_doc.date = doc.vfd_date
     vfd_provider_posting_doc.time = doc.vfd_time
-    vfd_provider_posting_doc.save()
+    vfd_provider_posting_doc.save(ignore_permissions=True)
 
     if not doc.is_auto_generate_vfd:
         frappe.db.commit()

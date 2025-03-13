@@ -209,8 +209,9 @@ def post_fiscal_receipt(doc, method="POST"):
     vfd_provider_posting_doc.ackcode = data.get("status_code")
     vfd_provider_posting_doc.date = date_part
     vfd_provider_posting_doc.time = time_part
+    vfd_provider_posting_doc.req_data = payload
 
-    vfd_provider_posting_doc.save()
+    vfd_provider_posting_doc.save(ignore_permissions=True)
 
     if method == "on_submit":
         doc.vfd_status = "Success" if data.get("status_code") == 200 else "Failed"
