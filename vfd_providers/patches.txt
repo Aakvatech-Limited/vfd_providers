@@ -4,3 +4,4 @@
 [post_model_sync]
 
 vfd_providers.patches.custom_fields.vfd_providers_updated_custom_fields   
+vfd_providers.patches.migrate_vfd_customer_data

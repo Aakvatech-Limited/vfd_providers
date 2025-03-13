@@ -70,6 +70,7 @@ doctype_js = {
 
 # before_install = "vfd_providers.install.before_install"
 # after_install = "vfd_providers.install.after_install"
+after_migrate = "vfd_providers.patches.migrate_vfd_customer_data.delete"
 
 # Uninstallation
 # ------------
