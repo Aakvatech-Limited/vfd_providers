@@ -220,6 +220,7 @@ def post_fiscal_receipt(doc, method="POST"):
         doc.vfd_date = date_part
         doc.vfd_time = time_part
         doc.vfd_posting_info = vfd_provider_posting_doc.name
+        doc.save(ignore_permissions=True)
         doc.add_comment(
             "Comment",
             f"VFD Invoice ID: {res_data.get('invoiceId')}",

@@ -135,6 +135,7 @@ def post_fiscal_receipt(doc, method="POST"):
         doc.vfd_rctvnum = data.get("rctvnum")
         doc.vfd_date = data.get("localDate")
         doc.vfd_time = data.get("localTime")
+        doc.save(ignore_permissions=True)
     elif method == "POST":
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_rctvnum", data.get("rctvnum")
