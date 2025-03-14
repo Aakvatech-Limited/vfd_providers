@@ -155,7 +155,7 @@ def post_fiscal_receipt(doc, method="POST"):
     
     payment_type_map = {'cash': 'CASH', 'bank': 'CCARD', 'phone': 'EMONEY', 'cheque': 'CHEQUE'}
     for payment in doc.payments:
-        mode_of_payment_type = frappe.db.get_cached_value("Mode of Payment", payment.mode_of_payment, "type")
+        mode_of_payment_type = frappe.get_cached_value("Mode of Payment", payment.mode_of_payment, "type")
         if not mode_of_payment_type:
             frappe.throw(f"Payment type is not set for Mode of payment: {payment.mode_of_payment}. Please set it.")
 
