@@ -7,7 +7,7 @@ from time import sleep
 import frappe, json, requests
 from frappe import _
 from frappe.utils import nowdate, nowtime, format_datetime, flt, now_datetime, add_to_date
-import datetime
+from datetime import datetime
 
 
 class SimplifyVFDSettings(Document):
