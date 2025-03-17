@@ -197,7 +197,7 @@ def post_fiscal_receipt(doc, method="POST"):
     )
 
     res_data = data.get("message")
-    if data.get("status_code") == 200:
+    if res_data.get("success"):
         dt_object = datetime.strptime(res_data.get("issuedAt"), "%Y-%m-%d %H:%M:%S")
 
         # Extract date and time
@@ -220,7 +220,7 @@ def post_fiscal_receipt(doc, method="POST"):
     vfd_provider_posting_doc.save(ignore_permissions=True)
 
     if method == "on_submit":
-        doc.vfd_status = "Success" if data.get("status_code") == 200 else "Failed"
+        doc.vfd_status = "Success" if res_data.get("success") else "Failed"
         doc.vfd_verification_url = res_data.get("verificationUrl")
         doc.vfd_rctvnum = res_data.get("verificationCode")
         doc.vfd_date = date_part
