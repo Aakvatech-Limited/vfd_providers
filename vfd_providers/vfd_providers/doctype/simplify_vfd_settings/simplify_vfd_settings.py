@@ -106,6 +106,7 @@ def post_fiscal_receipt(doc, method="POST"):
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
     
     items = []
+    total_amount = 0
 
     tax_map = {
         "1": "STANDARD",
@@ -151,6 +152,8 @@ def post_fiscal_receipt(doc, method="POST"):
                 "taxType": vat_group,
             }
         )
+        
+        total_amount += price
     
     # payment_type_map = {'cash': 'CASH', 'bank': 'CCARD', 'phone': 'EMONEY', 'cheque': 'CHEQUE'}
     # for payment in doc.payments:
@@ -169,11 +172,7 @@ def post_fiscal_receipt(doc, method="POST"):
     payments = [
         {
             "type": "INVOICE",
-            "amount": (
-                doc.base_total
-                if doc.base_grand_total < doc.base_total
-                else doc.base_grand_total
-            ),
+            "amount": total_amount,
         }
     ]
     

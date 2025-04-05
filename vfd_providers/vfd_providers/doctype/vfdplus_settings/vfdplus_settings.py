@@ -163,6 +163,8 @@ def post_fiscal_receipt(doc, method="POST"):
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
 
     cart_items = []
+    total_amount = 0
+
     tax_map = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
     for item in doc.items:
         vat_rate_id = frappe.get_cached_value(
@@ -178,6 +180,7 @@ def post_fiscal_receipt(doc, method="POST"):
                 sp = item.base_amount
         else:
             sp = item.base_amount
+        
         cart_items.append(
             {
                 "vat_rate_code": vat_rate_code,
@@ -192,6 +195,7 @@ def post_fiscal_receipt(doc, method="POST"):
                 "total_item_discount": 0.0,
             }
         )
+        total_amount += sp
 
     payload = {
         "credential_code": vfdplus_settings.serial_code,
@@ -211,15 +215,14 @@ def post_fiscal_receipt(doc, method="POST"):
         },
         "payment_methods": [
             {
-                "pmt_type": "CASH",
-                "pmt_amount": doc.base_rounded_total or doc.base_grand_total,
+                "pmt_type": "INVOICE",
+                "pmt_amount": total_amount,
             }
         ],
         "cart_totals": {
             "item_counts": len(doc.items),
-            "total_amount": doc.base_rounded_total or doc.base_grand_total,
-            "total_amount_exclude_discount": doc.base_rounded_total
-            or doc.base_grand_total,
+            "total_amount": total_amount,
+            "total_amount_exclude_discount": total_amount,
             "discount": 0.0,
         },
         "cart_items": cart_items,
