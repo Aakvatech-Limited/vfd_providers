@@ -6,7 +6,14 @@ from frappe.model.document import Document
 from time import sleep
 import frappe, json, requests
 from frappe import _
-from frappe.utils import nowdate, nowtime, format_datetime, flt, now_datetime, add_to_date
+from frappe.utils import (
+    nowdate,
+    nowtime,
+    format_datetime,
+    flt,
+    now_datetime,
+    add_to_date,
+)
 from datetime import datetime
 
 
@@ -17,17 +24,19 @@ class SimplifyVFDSettings(Document):
 
         if not self.username or not self.password:
             frappe.throw(_("Username and Password are required!"))
-        
+
         payload = {
             "username": self.username,
             "password": self.get_password(),
         }
 
-        data = send_simplify_vfd_request("login", self.company, json.dumps(payload), "POST")
+        data = send_simplify_vfd_request(
+            "login", self.company, json.dumps(payload), "POST"
+        )
         token = data.get("token")
         if not token:
             frappe.throw(_("Invalid username or password!"))
-        
+
         refresh_token = data.get("refresh_token")
         token_expires = add_to_date(now_datetime(), minutes=25)
 
@@ -38,13 +47,17 @@ class SimplifyVFDSettings(Document):
 
         self.reload()
         return True
-    
+
     def refresh_bearer_token(self):
         """Refresh bearer token from Simplify VFD"""
 
         if not self.refresh_token:
-            frappe.throw(_("Refresh Token is not found, Please set username and password and generate the token!"))
-        
+            frappe.throw(
+                _(
+                    "Refresh Token is not found, Please set username and password and generate the token!"
+                )
+            )
+
         payload = {
             "refresh_token": self.get_password("refresh_token"),
         }
@@ -57,7 +70,7 @@ class SimplifyVFDSettings(Document):
 
         if not token or not refresh_token:
             frappe.throw(_("Invalid refresh token!"))
-        
+
         token_expires = add_to_date(now_datetime(), minutes=20)
         self.db_set("bearer_token", token)
         self.db_set("refresh_token", refresh_token)
@@ -72,7 +85,9 @@ class SimplifyVFDSettings(Document):
 def get_token():
     """Refresh bearer token from Simplify VFD"""
 
-    setting_companies = frappe.get_all("Simplify VFD Settings", fields=["name"], pluck='name')
+    setting_companies = frappe.get_all(
+        "Simplify VFD Settings", fields=["name"], pluck="name"
+    )
 
     for company in setting_companies:
         doc = None
@@ -80,10 +95,10 @@ def get_token():
             doc = frappe.get_cached_doc("Simplify VFD Settings", company)
         else:
             continue
-        
+
         if doc.token_expires and doc.token_expires <= now_datetime():
             doc.refresh_bearer_token()
-        
+
 
 def post_fiscal_receipt(doc, method="POST"):
     """Post fiscal receipt to Simplify VFD
@@ -99,12 +114,15 @@ def post_fiscal_receipt(doc, method="POST"):
     Nothing
     """
     simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
-    if simplify_vfd_settings.token_expires and simplify_vfd_settings.token_expires <= now_datetime():
+    if (
+        simplify_vfd_settings.token_expires
+        and simplify_vfd_settings.token_expires <= now_datetime()
+    ):
         simplify_vfd_settings.refresh_bearer_token()
-    
+
     doc.vfd_date = doc.vfd_date or nowdate()
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
-    
+
     items = []
     total_amount = 0
 
@@ -143,18 +161,20 @@ def post_fiscal_receipt(doc, method="POST"):
         else:
             price = flt(item.base_amount, precision=2)
 
+        unit_amount = flt(price / item.qty, precision=2)
+
         items.append(
             {
                 "description": f"{item.item_code} - {item.item_name}",
                 "quantity": item.qty,
-                "unitAmount": price / item.qty,
+                "unitAmount": unit_amount,
                 "discountRate": 0.0,
                 "taxType": vat_group,
             }
         )
-        
-        total_amount += price
-    
+
+        total_amount += unit_amount * item.qty
+
     # payment_type_map = {'cash': 'CASH', 'bank': 'CCARD', 'phone': 'EMONEY', 'cheque': 'CHEQUE'}
     # for payment in doc.payments:
     #     mode_of_payment_type = frappe.get_cached_value("Mode of Payment", payment.mode_of_payment, "type")
@@ -175,7 +195,7 @@ def post_fiscal_receipt(doc, method="POST"):
             "amount": total_amount,
         }
     ]
-    
+
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] if doc.vfd_cust_id_type else "6"
     payload = {
         "dateTime": str(doc.vfd_date),
@@ -212,11 +232,11 @@ def post_fiscal_receipt(doc, method="POST"):
         # Extract date and time
         date_part = dt_object.date()
         time_part = dt_object.time()
-    
+
     else:
         date_part = nowdate()
         time_part = nowtime()
-   
+
     vfd_provider_posting_doc.sales_invoice = doc.name
     vfd_provider_posting_doc.rctnum = doc.vfd_rctvnum
     vfd_provider_posting_doc.req_headers = str(data.get("headers"))
@@ -243,14 +263,16 @@ def post_fiscal_receipt(doc, method="POST"):
 
     elif method == "POST":
         frappe.db.set_value(
-            "Sales Invoice", doc.name, {
+            "Sales Invoice",
+            doc.name,
+            {
                 "vfd_rctvnum": res_data.get("verificationCode"),
                 "vfd_status": "Success",
                 "vfd_verification_url": res_data.get("verificationUrl"),
                 "vfd_date": date_part,
                 "vfd_time": time_part,
                 "vfd_posting_info": vfd_provider_posting_doc.name,
-            }
+            },
         )
         doc.add_comment(
             "Comment",
@@ -292,9 +314,13 @@ def send_simplify_vfd_request(
     simplify_vfd = frappe.get_cached_doc("VFD Provider", "SimplifyVFD")
 
     if not simplify_vfd_settings:
-        simplify_vfd_settings = frappe.get_cached_doc(simplify_vfd.vfd_provider_settings, company)
-    
-    simplify_vfd_endpoint = [row for row in simplify_vfd.attributes if row.key == call_type][0].value
+        simplify_vfd_settings = frappe.get_cached_doc(
+            simplify_vfd.vfd_provider_settings, company
+        )
+
+    simplify_vfd_endpoint = [
+        row for row in simplify_vfd.attributes if row.key == call_type
+    ][0].value
 
     url = f"{simplify_vfd.base_url.strip()}{simplify_vfd_endpoint.strip()}"
 
@@ -302,8 +328,10 @@ def send_simplify_vfd_request(
         "accept": "application/json",
         "Content-Type": "application/json",
     }
-    if call_type not in ['login', 'refresh']:
-        headers["Authorization"] = f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
+    if call_type not in ["login", "refresh"]:
+        headers["Authorization"] = (
+            f"Bearer {simplify_vfd_settings.get_password('bearer_token')}"
+        )
 
     data = None
     status_code = None
@@ -327,7 +355,7 @@ def send_simplify_vfd_request(
                     message=f"Send Request: {url} - Status Code: {res.status_code}\n{res.text}\n{payload}",
                 )
                 frappe.throw(f"Error is {res.text}")
-            
+
             break
         except Exception as e:
             sleep(3 * i + 1)
@@ -339,7 +367,7 @@ def send_simplify_vfd_request(
                     title=str(e)[:140] if e else "Send Simplify VFD Request Error",
                 )
                 raise e
-    
+
     if for_vfd_posting:
         data = {
             "message": data,
@@ -347,5 +375,5 @@ def send_simplify_vfd_request(
             "status_code": res.status_code,
         }
         return data
-    
+
     return data
