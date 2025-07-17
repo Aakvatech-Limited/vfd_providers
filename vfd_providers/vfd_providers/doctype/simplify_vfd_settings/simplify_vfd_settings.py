@@ -15,6 +15,7 @@ from frappe.utils import (
     add_to_date,
 )
 from datetime import datetime
+from vfd_providers.vfd_providers.utils import get_vat_amount
 
 
 class SimplifyVFDSettings(Document):
@@ -151,34 +152,26 @@ def post_fiscal_receipt(doc, method="POST"):
 
         vat_group = tax_map[vat_rate_id]
 
-        price = 0
-        if vat_rate_id == 1 or vat_rate_id == "1":
-            if item.base_net_amount == item.base_amount:
-                # both amounts are same if the price is exclusive of VAT
-                price = flt(item.base_net_amount * 1.18, precision=2)
-            else:
-                price = flt(item.base_amount, precision=2)
-        else:
-            price = flt(item.base_amount, precision=2)
+        price = get_vat_amount(item, vat_rate_id, precision=2)
 
-        unit_amount = flt(price / item.qty, precision=2)
+        unit_price = flt((price / item.qty), 2)
 
         items.append(
             {
                 "description": f"{item.item_code} - {item.item_name}",
                 "quantity": item.qty,
-                "unitAmount": unit_amount,
+                "unitAmount": unit_price,
                 "discountRate": 0.0,
                 "taxType": vat_group,
             }
         )
 
-        total_amount += unit_amount * item.qty
+        total_amount += unit_price * item.qty
 
     payments = [
         {
             "type": "INVOICE",
-            "amount": total_amount,
+            "amount": flt(total_amount, 2)
         }
     ]
 

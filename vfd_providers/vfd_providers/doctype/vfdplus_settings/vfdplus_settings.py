@@ -7,6 +7,7 @@ from time import sleep
 import frappe, json, requests
 from frappe import _
 from frappe.utils import nowdate, nowtime, format_datetime
+from vfd_providers.vfd_providers.utils import get_vat_amount
 
 
 class VFDPlusSettings(Document):
@@ -72,7 +73,7 @@ def send_vfdplus_request(
         vfdplus_settings = frappe.get_doc("VFDPlus Settings", company)
     url = (
         vfdplus.base_url
-        + frappe.get_list(
+        + frappe.get_all(
             "VFD Provider Attribute",
             filters={"parent": "VFDPlus", "key": call_type},
             fields=["value"],
@@ -170,16 +171,10 @@ def post_fiscal_receipt(doc, method="POST"):
         vat_rate_id = frappe.get_cached_value(
             "Item Tax Template", item.item_tax_template, "vfd_taxcode"
         )[:1]
+
         vat_rate_code = tax_map[vat_rate_id]
-        if vat_rate_code == "A":
-            # Check if the absolute difference between base_net_amount and base_amount is less than 0.1%
-            if round(abs(1 - (item.base_amount / item.base_net_amount)) * 10) == 0:
-                # both amounts are same if the price is exclusive of VAT
-                sp = item.base_net_amount * 1.18
-            else:
-                sp = item.base_amount
-        else:
-            sp = item.base_amount
+
+        sp = get_vat_amount(item, vat_rate_code)
         
         cart_items.append(
             {

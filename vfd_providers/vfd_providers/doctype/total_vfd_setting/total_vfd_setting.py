@@ -7,6 +7,7 @@ from time import sleep
 import frappe, json, requests
 from frappe import _
 from frappe.utils import nowdate, nowtime, format_datetime, flt
+from vfd_providers.vfd_providers.utils import get_vat_amount
 
 
 class TotalVFDSetting(Document):
@@ -42,15 +43,11 @@ def post_fiscal_receipt(doc, method="POST"):
         vat_rate_id = frappe.get_cached_value(
             "Item Tax Template", item.item_tax_template, "vfd_taxcode"
         )[:1]
+
         vat_group = tax_map[vat_rate_id]
-        if vat_group == "A":
-            if item.base_net_amount == item.base_amount:
-                # both amounts are same if the price is exclusive of VAT
-                price = flt(item.base_net_amount * 1.18, precision=2)
-            else:
-                price = flt(item.base_amount, precision=2)
-        else:
-            price = flt(item.base_amount, precision=2)
+
+        price = get_vat_amount(item, vat_group)
+
         # Check if the VAT group already exists in the dictionary; if not, initialize it
         if vat_group not in vat_group_totals:
             vat_group_totals[vat_group] = 0
@@ -68,6 +65,7 @@ def post_fiscal_receipt(doc, method="POST"):
             }
         )
         total_amount += price
+
     # Convert the aggregated totals into a list of dictionaries
     vat_group_totals_list = [
         {"vat_group": vat_group, "total_price": total_price}
