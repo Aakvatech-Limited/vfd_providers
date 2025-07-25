@@ -166,7 +166,7 @@ def post_fiscal_receipt(doc, method="POST"):
             }
         )
 
-        total_amount += unit_price * item.qty
+        total_amount += flt((unit_price * item.qty), 2)
 
     payments = [
         {
