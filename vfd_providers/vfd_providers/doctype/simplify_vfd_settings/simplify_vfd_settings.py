@@ -17,6 +17,14 @@ from frappe.utils import (
 from datetime import datetime
 
 
+# The process of getting the access token and refresh token is as follows:
+    # 1. Call the login endpoint with username and password to get the access token and refresh token.
+    # 2. Store the access token and refresh token in the Simplify VFD Settings
+    # 3. Set the token expiration time to 20 minutes from now for the access token
+    # 5. If the access token is expired, call the refresh token endpoint with the refresh token
+    # 6. If the refresh token is expired (after 24 hours), call the login endpoint again to get a new refresh token.
+
+
 class SimplifyVFDSettings(Document):
     @frappe.whitelist()
     def get_bearer_token(self):
@@ -33,18 +41,19 @@ class SimplifyVFDSettings(Document):
         data = send_simplify_vfd_request(
             "login", self.company, json.dumps(payload), "POST"
         )
+
         token = data.get("token")
         if not token:
             frappe.throw(_("Invalid username or password!"))
 
         refresh_token = data.get("refresh_token")
-        token_expires = add_to_date(now_datetime(), minutes=25)
+        token_expires = add_to_date(now_datetime(), minutes=20)
 
         self.db_set("bearer_token", token)
         self.db_set("refresh_token", refresh_token)
         self.db_set("token_expires", token_expires)
-        frappe.db.commit()
 
+        self.clear_cache()
         self.reload()
         return True
 
@@ -76,14 +85,13 @@ class SimplifyVFDSettings(Document):
         self.db_set("refresh_token", refresh_token)
         self.db_set("token_expires", token_expires)
 
-        frappe.db.commit()
+        self.clear_cache()
         self.reload()
-
         return True
 
 
-def get_token():
-    """Refresh bearer token from Simplify VFD"""
+def get_access_token():
+    """Refresh access token from Simplify VFD"""
 
     setting_companies = frappe.get_all(
         "Simplify VFD Settings", fields=["name"], pluck="name"
@@ -98,6 +106,23 @@ def get_token():
 
         if doc.token_expires and doc.token_expires <= now_datetime():
             doc.refresh_bearer_token()
+
+
+def get_refresh_token():
+    """Fetch refresh token from Simplify VFD"""
+
+    setting_companies = frappe.get_all(
+        "Simplify VFD Settings", fields=["name"], pluck="name"
+    )
+
+    for company in setting_companies:
+        doc = None
+        if frappe.db.exists("Simplify VFD Settings", company):
+            doc = frappe.get_cached_doc("Simplify VFD Settings", company)
+        else:
+            continue
+
+        doc.get_bearer_token()
 
 
 def post_fiscal_receipt(doc, method="POST"):
