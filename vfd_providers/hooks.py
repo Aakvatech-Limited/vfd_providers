@@ -131,7 +131,10 @@ doc_events = {
 scheduler_events = {
 	"cron": {
         "*/10 * * * *": [
-            "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_token"
+            "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_access_token",
+        ],
+        "0 */12 * * *": [
+            "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_refresh_token",
         ],
         "*/15 * * * *": [
             "vfd_providers.utils.utils.posting_all_vfd_invoices",
