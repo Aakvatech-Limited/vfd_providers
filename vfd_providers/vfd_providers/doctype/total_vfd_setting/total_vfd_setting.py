@@ -46,14 +46,14 @@ def post_fiscal_receipt(doc, method="POST"):
 
         vat_group = tax_map[vat_rate_id]
 
-        price = get_vat_amount(item, vat_group)
+        price = get_vat_amount(item, vat_group, precision=2)
 
         # Check if the VAT group already exists in the dictionary; if not, initialize it
         if vat_group not in vat_group_totals:
             vat_group_totals[vat_group] = 0
 
         # Add the calculated price to the respective VAT group's total
-        vat_group_totals[vat_group] += flt(price, precision=2)
+        vat_group_totals[vat_group] += price
         items.append(
             {
                 "id": item.item_code,
@@ -68,7 +68,7 @@ def post_fiscal_receipt(doc, method="POST"):
 
     # Convert the aggregated totals into a list of dictionaries
     vat_group_totals_list = [
-        {"vat_group": vat_group, "total_price": total_price}
+        {"vat_group": vat_group, "total_price": flt(total_price, 2)}
         for vat_group, total_price in vat_group_totals.items()
     ]
 
@@ -81,13 +81,13 @@ def post_fiscal_receipt(doc, method="POST"):
                 {
                     "id": f"""Items in VAT Group {vat_group_entry["vat_group"]}""",
                     "name": f"""Items in VAT Group {vat_group_entry["vat_group"]}""",
-                    "price": flt(vat_group_entry["total_price"], precision=2),
+                    "price": flt(vat_group_entry["total_price"], 2),
                     "qty": 1,
                     "vatGroup": vat_group_entry["vat_group"],
                     "discount": 0.0,
                 }
             )
-            total_amount += flt(vat_group_entry["total_price"], precision=2)
+            total_amount += flt(vat_group_entry["total_price"], 2)
 
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] or "6"
     payload = {
@@ -102,7 +102,7 @@ def post_fiscal_receipt(doc, method="POST"):
         "payments": [
             {
                 "type": "invoice",
-                "amount": total_amount,
+                "amount": flt(total_amount, 2),
             }
         ],
         "items": items,
