@@ -6,7 +6,7 @@ from frappe.model.document import Document
 from time import sleep
 import frappe, json, requests
 from frappe import _
-from frappe.utils import nowdate, nowtime, format_datetime
+from frappe.utils import nowdate, nowtime, format_datetime, flt
 from vfd_providers.vfd_providers.utils import get_vat_amount
 
 
@@ -179,7 +179,7 @@ def get_payload(doc):
                 "item_name": item.item_code,
                 "item_barcode": "-1",
                 "item_qty": item.qty,
-                "usp": sp / item.qty,
+                "usp": flt(sp / item.qty, 2),
                 "sp": sp,
                 "unit_discount_perc": 0.0,
                 "unit_discount_amt": 0.0,
@@ -209,13 +209,13 @@ def get_payload(doc):
         "payment_methods": [
             {
                 "pmt_type": "INVOICE",
-                "pmt_amount": total_amount,
+                "pmt_amount": flt(total_amount, 2)
             }
         ],
         "cart_totals": {
             "item_counts": len(doc.items),
-            "total_amount": total_amount,
-            "total_amount_exclude_discount": total_amount,
+            "total_amount": flt(total_amount, 2),
+            "total_amount_exclude_discount": flt(total_amount, 2),
             "discount": 0.0,
         },
         "cart_items": cart_items,
