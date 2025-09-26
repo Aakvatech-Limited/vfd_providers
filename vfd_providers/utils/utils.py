@@ -1,7 +1,10 @@
 import click
 import frappe
 from frappe import _
-from vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings import post_fiscal_receipt as vfdplus_post_fiscal_receipt
+from vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings import (
+    get_payload as get_vfdplus_payload,
+    post_fiscal_receipt as vfdplus_post_fiscal_receipt
+)
 from vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting import (
     get_payload as get_total_vfd_payload,
     post_fiscal_receipt as total_vfd_post_fiscal_receipt
@@ -36,7 +39,7 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
     if caller == "Frontend":
         payload = {}
         if vfd_provider.name == "VFDPlus":
-            pass
+            payload = get_vfdplus_payload(sinv_doc)
         
         elif vfd_provider.name == "TotalVFD":
             payload = get_total_vfd_payload(sinv_doc)
@@ -50,7 +53,7 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
     else:
 
         if vfd_provider.name == "VFDPlus":
-            vfdplus_post_fiscal_receipt(sinv_doc, method)
+            vfdplus_post_fiscal_receipt(doc=sinv_doc, method=method)
         
         elif vfd_provider.name == "TotalVFD":
             total_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
@@ -105,7 +108,7 @@ def posting_all_vfd_invoices():
             doc = frappe.get_doc("Sales Invoice", invoice.name)
 
             if vfd_provider.name == "VFDPlus":
-                vfdplus_post_fiscal_receipt(doc, "POST")
+                vfdplus_post_fiscal_receipt(doc=doc, method="POST")
             
             elif vfd_provider.name == "TotalVFD":
                 total_vfd_post_fiscal_receipt(doc=doc, method="POST")

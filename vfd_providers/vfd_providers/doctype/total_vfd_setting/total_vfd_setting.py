@@ -110,6 +110,7 @@ def get_payload(doc):
     return payload
 
 
+@frappe.whitelist()
 def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
     """Post fiscal receipt to Total VFD
     Parameters
@@ -162,12 +163,15 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
         doc.vfd_rctvnum = data.get("rctvnum")
         doc.vfd_date = data.get("localDate")
         doc.vfd_time = data.get("localTime")
+        doc.vfd_posting_info = vfd_provider_posting_doc.name
         doc.save(ignore_permissions=True)
     elif method == "POST":
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_rctvnum", data.get("rctvnum")
         )
-        frappe.db.set_value("Sales Invoice", doc.name, "vfd_status", "Success")
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_status", "Success"
+        )
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_date", data.get("localDate")
         )
@@ -175,10 +179,10 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
             "Sales Invoice", doc.name, "vfd_time", data.get("localTime")
         )
         frappe.db.set_value(
-            "Sales Invoice",
-            doc.name,
-            "vfd_verification_url",
-            data.get("verificationLink"),
+            "Sales Invoice", doc.name, "vfd_posting_info", vfd_provider_posting_doc.name
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_verification_url", data.get("verificationLink"),
         )
         frappe.db.commit()
 
