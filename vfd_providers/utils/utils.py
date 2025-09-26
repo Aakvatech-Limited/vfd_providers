@@ -50,7 +50,7 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
             total_vfd_post_fiscal_receipt(sinv_doc, method)
         
         elif vfd_provider.name == "SimplifyVFD":
-            simplify_vfd_post_fiscal_receipt(sinv_doc, method)
+            simplify_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
         else:
             frappe.throw(_("VFD Provider not supported"))
 
@@ -105,7 +105,7 @@ def posting_all_vfd_invoices():
                 total_vfd_post_fiscal_receipt(doc, "POST")
             
             elif vfd_provider.name == "SimplifyVFD":
-                simplify_vfd_post_fiscal_receipt(doc, "POST")
+                simplify_vfd_post_fiscal_receipt(doc=doc, method="POST")
 
             else:
                 continue
