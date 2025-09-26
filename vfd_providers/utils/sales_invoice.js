@@ -57,6 +57,95 @@ function _generate_vfd(frm) {
 }
 
 function show_vfd_preview_dialog(frm, payload, vfd_provider) {
+  // Some providers (esp. VFDPlus) may return payload as serialized JSON string.
+  if (payload && typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch (e) {
+      // Leave as-is; normalization will handle empty objects safely.
+    }
+  }
+  // Normalize differing payload structures across providers (SimplifyVFD, VFDPlus, TotalVFD)
+  function normalizePayload(raw, provider) {
+    const p = raw || {};
+    // Customer object differences
+    let customerObj = p.customer || {};
+    if (provider === "VFDPlus") {
+      customerObj = p.customer_info || {};
+    }
+
+    const customerName = customerObj.name || customerObj.cust_name || customerObj.customerName || '';
+    const identificationType = customerObj.identificationType || customerObj.cust_id_type || customerObj.idType || '';
+    const identificationNumber = customerObj.identificationNumber || customerObj.cust_id || customerObj.idValue || '';
+    const vatRegistrationNumber = customerObj.vatRegistrationNumber || customerObj.cust_vrn || customerObj.vrn || '';
+
+    // Invoice / reference id key differences
+    const partnerInvoiceId = p.partnerInvoiceId || p.trans_no || p.referenceNumber || frm.doc.name;
+    const invoiceAmountType = p.invoiceAmountType || p.amountType || '';
+
+    // Date / time differences
+    let dateTime = p.dateTime || '';
+    if (!dateTime) {
+      if (provider === "VFDPlus") {
+        if (p.idate) {
+          dateTime = p.idate + (p.itime ? " " + p.itime : '');
+        }
+      }
+      // TotalVFD sample does not provide date; fallback handled later
+    }
+
+    // Items arrays differences
+    let items = [];
+    if (Array.isArray(p.items)) {
+      items = p.items.map(it => ({
+        description: it.description || it.name || it.item_name || '',
+        quantity: it.quantity || it.qty || it.item_qty || 0,
+        unitAmount: it.unitAmount || parseFloat((it.price / (it.qty || 1)).toFixed(2)) || it.usp || 0,
+        taxType: (it.taxType || it.vatGroup || it.vat_rate_code || '').toString(),
+        _raw: it,
+      }));
+    } else if (Array.isArray(p.cart_items)) { // VFDPlus
+      items = p.cart_items.map(it => ({
+        description: it.description || it.item_name || '',
+        quantity: it.quantity || it.item_qty || 0,
+        unitAmount: it.unitAmount || it.usp || 0,
+        taxType: (it.taxType || it.vat_rate_code || '').toString(),
+        _raw: it,
+      }));
+    }
+
+    // Payments arrays differences
+    let payments = [];
+    if (Array.isArray(p.payments)) {
+      payments = p.payments.map(pm => ({
+        type: pm.type || pm.pmt_type || '',
+        amount: pm.amount || pm.pmt_amount || 0,
+      }));
+    } else if (Array.isArray(p.payment_methods)) { // VFDPlus
+      payments = p.payment_methods.map(pm => ({
+        type: pm.type || pm.pmt_type || '',
+        amount: pm.amount || pm.pmt_amount || 0,
+      }));
+    }
+
+    return {
+      customerName,
+      identificationType,
+      identificationNumber,
+      vatRegistrationNumber,
+      partnerInvoiceId,
+      invoiceAmountType,
+      dateTime,
+      items,
+      payments,
+    };
+  }
+
+  const norm = normalizePayload(payload, vfd_provider);
+  const normalizedItems = norm.items || [];
+  const normalizedPayments = norm.payments || [];
+  const normalizedDateTime = norm.dateTime;
+
   const formatNumber = (val) =>
     new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -67,18 +156,20 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
   let totalIncl = 0;
   let taxAmount = 0;
 
-  (payload.items || []).forEach((item) => {
+  (normalizedItems || []).forEach((item) => {
     const lineTotal = (item.unitAmount || 0) * (item.quantity || 0);
     totalIncl += lineTotal;
-    if (item.taxType === "STANDARD") {
+    // STANDARD or VAT group code 'A' considered 18%
+    const taxCode = (item.taxType || '').toUpperCase();
+    if (["STANDARD", "A"].includes(taxCode)) {
       taxAmount += lineTotal * 0.18; // assumption based on VAT standard rate
     }
   });
 
   // If payments total is present and differs slightly, trust payments amount
-  if (payload.payments && payload.payments.length) {
-    const pTotal = flt(payload.payments.reduce((a, p) => a + (p.amount || 0), 0));
-    if (pTotal) totalIncl = pTotal; // override
+  if (normalizedPayments && normalizedPayments.length) {
+    const pTotal = flt(normalizedPayments.reduce((a, p) => a + (p.amount || 0), 0));
+    if (pTotal) totalIncl = pTotal; // override to reflect actual payment total
   }
 
   let totalExcl = totalIncl - taxAmount;
@@ -94,12 +185,31 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
 
   const company_name = (frm.doc.company || "").toUpperCase();
   let receipt_date = ''
-  if (payload.dateTime && !["None", "null", "Invalid date", "undefined"].includes(String(payload.dateTime))) {
-    const dt = frappe.datetime.str_to_obj(payload.dateTime);
+  if (normalizedDateTime && !["None", "null", "Invalid date", "undefined"].includes(String(normalizedDateTime))) {
+    const dt = frappe.datetime.str_to_obj(normalizedDateTime);
     receipt_date = frappe.datetime.str_to_user(frappe.datetime.obj_to_str(dt, "YYYY-MM-DD"));
   } else {
     receipt_date = frappe.datetime.nowdate();
   }
+
+  // Helpers to conditionally build info rows (omit labels if value absent)
+  function buildInfoRow(label, value) {
+    const hasVal = value !== undefined && value !== null && String(value).trim() !== '';
+    if (!hasVal) return '';
+    return `<div class="vfd-row"><span class="vfd-label">${frappe.utils.escape_html(label)}</span><span class="vfd-value">${frappe.utils.escape_html(String(value))}</span></div>`;
+  }
+
+  const customerInfoHTML = [
+    buildInfoRow("Customer Name:", norm.customerName),
+    buildInfoRow("Customer ID Type:", norm.identificationType),
+    buildInfoRow("Customer ID:", norm.identificationNumber),
+    buildInfoRow("VAT Reg No:", norm.vatRegistrationNumber),
+  ].join('');
+
+  const invoiceInfoHTML = [
+    buildInfoRow("Tax Type:", norm.invoiceAmountType),
+    buildInfoRow("Invoice ID:", norm.partnerInvoiceId || frm.doc.name),
+  ].join('');
 
   const receiptHTML = `
   <div class="vfd-preview-root">
@@ -136,14 +246,10 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
     <hr class="vfd-hr" />
     <div class="vfd-subgrid">
       <div class="vfd-box" style="padding-right:20px; font-size:11px;">
-        <div class="vfd-row"><span class="vfd-label">Customer Name:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.name || '')}</span></div>
-        <div class="vfd-row"><span class="vfd-label">Customer ID Type:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.identificationType || '')}</span></div>
-        <div class="vfd-row"><span class="vfd-label">Customer ID:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.identificationNumber || 'n/a')}</span></div>
-        <div class="vfd-row"><span class="vfd-label">VAT Reg No:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.vatRegistrationNumber || '')}</span></div>
+        ${customerInfoHTML}
       </div>
       <div class="vfd-box" style="padding-left:40px; border-left:2px solid #e4e6e9; font-size:11px;">
-        <div class="vfd-row"><span class="vfd-label">Tax Type:</span><span class="vfd-value">${frappe.utils.escape_html(payload.invoiceAmountType || '')}</span></div>
-        <div class="vfd-row"><span class="vfd-label">Invoice ID:</span><span class="vfd-value">${frappe.utils.escape_html(payload.partnerInvoiceId || frm.doc.name)}</span></div>
+        ${invoiceInfoHTML}
       </div>
     </div>
     <div class="vfd-heading" style="margin-top:18px; text-align:center;">Purchased Items</div>
@@ -157,14 +263,14 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
         </tr>
       </thead>
       <tbody>
-        ${(payload.items || [])
+        ${(normalizedItems || [])
           .map((it) => {
             const lineTotal = (it.unitAmount || 0) * (it.quantity || 0);
             return `<tr>
               <td>${frappe.utils.escape_html(it.description || '')}</td>
               <td style="text-align:center;">${formatNumber(it.quantity || 0)}</td>
-              <td style="text-align:right;">${formatNumber(it.unitAmount || 0)}</td>
-              <td style="text-align:right;">${formatNumber(lineTotal)}</td>
+              <td style=\"text-align:right;\">${formatNumber(it.unitAmount || 0)}</td>
+              <td style=\"text-align:right;\">${formatNumber(lineTotal)}</td>
             </tr>`;
           })
           .join('')}
