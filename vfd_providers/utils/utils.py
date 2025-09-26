@@ -3,11 +3,14 @@ import frappe
 from frappe import _
 from vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings import post_fiscal_receipt as vfdplus_post_fiscal_receipt
 from vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting import post_fiscal_receipt as total_vfd_post_fiscal_receipt
-from vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings import post_fiscal_receipt as simplify_vfd_post_fiscal_receipt
+from vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings import (
+    get_payload as get_simplify_payload,
+    post_fiscal_receipt as simplify_vfd_post_fiscal_receipt
+)
 
 
 @frappe.whitelist()
-def generate_tra_vfd(docname, sinv_doc=None, method="POST"):
+def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
     if not sinv_doc:
         sinv_doc = frappe.get_doc("Sales Invoice", docname)
     
@@ -21,21 +24,35 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST"):
     vfd_provider = frappe.get_cached_doc("VFD Provider", comp_vfd_provider.vfd_provider)
     if not vfd_provider:
         return
+    
     vfd_provider_settings = vfd_provider.vfd_provider_settings
 
     if not vfd_provider_settings:
         return
     
-    if vfd_provider.name == "VFDPlus":
-        vfdplus_post_fiscal_receipt(sinv_doc, method)
-    
-    elif vfd_provider.name == "TotalVFD":
-        total_vfd_post_fiscal_receipt(sinv_doc, method)
-    
-    elif vfd_provider.name == "SimplifyVFD":
-        simplify_vfd_post_fiscal_receipt(sinv_doc, method)
+    if caller == "Frontend":
+        if vfd_provider.name == "VFDPlus":
+            pass
+        
+        elif vfd_provider.name == "TotalVFD":
+            pass
+        
+        elif vfd_provider.name == "SimplifyVFD":
+            return get_simplify_payload(sinv_doc)
+        else:
+            frappe.throw(_("VFD Provider not supported"))
     else:
-        frappe.throw(_("VFD Provider not supported"))
+
+        if vfd_provider.name == "VFDPlus":
+            vfdplus_post_fiscal_receipt(sinv_doc, method)
+        
+        elif vfd_provider.name == "TotalVFD":
+            total_vfd_post_fiscal_receipt(sinv_doc, method)
+        
+        elif vfd_provider.name == "SimplifyVFD":
+            simplify_vfd_post_fiscal_receipt(sinv_doc, method)
+        else:
+            frappe.throw(_("VFD Provider not supported"))
 
 
 def autogenerate_vfd(doc, method):
@@ -43,7 +60,7 @@ def autogenerate_vfd(doc, method):
         return
     
     if doc.is_auto_generate_vfd and doc.docstatus == 1:
-        generate_tra_vfd(docname=doc.name, sinv_doc=doc, method=method)
+        generate_tra_vfd(docname=doc.name, sinv_doc=doc, method=method, caller="Scheduler")
 
 
 def posting_all_vfd_invoices():
