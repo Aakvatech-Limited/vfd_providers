@@ -44,7 +44,10 @@ function _generate_vfd(frm) {
         frappe.msgprint(__("No payload returned from server"));
         return;
       }
-      show_vfd_preview_dialog(r.message, frm);
+
+      let payload = r.message.payload
+      let vfd_provider = r.message.vfd_provider
+      show_vfd_preview_dialog(frm, payload, vfd_provider);
     },
     error: () => {
       frappe.dom.unfreeze();
@@ -53,7 +56,7 @@ function _generate_vfd(frm) {
   });
 }
 
-function show_vfd_preview_dialog(payload, frm) {
+function show_vfd_preview_dialog(frm, payload, vfd_provider) {
   const formatNumber = (val) =>
     new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -182,6 +185,15 @@ function show_vfd_preview_dialog(payload, frm) {
     </div>
     <div class="vfd-footer">Please verify the above details before sending to TRA.</div>
   </div>`;
+  
+  let method = ''
+  if (vfd_provider === "VFDPlus") {
+    method = "vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings.post_fiscal_receipt"
+  } else if (vfd_provider === "TotalVFD") {
+    method = "vfd_providers.vfd_providers.doctype.total_vfd_settings.total_vfd_settings.post_fiscal_receipt"
+  } else if (vfd_provider === "SimplifyVFD") {
+    method = "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.post_fiscal_receipt"
+  }
 
   let d = new frappe.ui.Dialog({
     title: __("VFD Receipt Preview"),
@@ -192,13 +204,12 @@ function show_vfd_preview_dialog(payload, frm) {
         options: receiptHTML,
       },
     ],
-    primary_action_label: __("Send"),
+    primary_action_label: __("Send To TRA"),
     primary_action() {
       // Submit to TRA
       frappe
         .call({
-          method:
-            "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.post_fiscal_receipt",
+          method: method,
           args: {
             method: "POST",
             payload: payload,
@@ -223,7 +234,6 @@ function show_vfd_preview_dialog(payload, frm) {
             }
         })
         .fail((e) => {
-          frappe.dom.unfreeze();
           frappe.msgprint({
             title: __("Error"),
             message: __("Failed to send VFD to TRA"),

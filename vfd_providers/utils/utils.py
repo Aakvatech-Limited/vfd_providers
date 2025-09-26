@@ -2,7 +2,10 @@ import click
 import frappe
 from frappe import _
 from vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings import post_fiscal_receipt as vfdplus_post_fiscal_receipt
-from vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting import post_fiscal_receipt as total_vfd_post_fiscal_receipt
+from vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting import (
+    get_payload as get_total_vfd_payload,
+    post_fiscal_receipt as total_vfd_post_fiscal_receipt
+)
 from vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings import (
     get_payload as get_simplify_payload,
     post_fiscal_receipt as simplify_vfd_post_fiscal_receipt
@@ -31,23 +34,26 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
         return
     
     if caller == "Frontend":
+        payload = {}
         if vfd_provider.name == "VFDPlus":
             pass
         
         elif vfd_provider.name == "TotalVFD":
-            pass
+            payload = get_total_vfd_payload(sinv_doc)
         
         elif vfd_provider.name == "SimplifyVFD":
-            return get_simplify_payload(sinv_doc)
+            payload = get_simplify_payload(sinv_doc)
         else:
             frappe.throw(_("VFD Provider not supported"))
+        
+        return {"payload": payload, "vfd_provider": vfd_provider.name}
     else:
 
         if vfd_provider.name == "VFDPlus":
             vfdplus_post_fiscal_receipt(sinv_doc, method)
         
         elif vfd_provider.name == "TotalVFD":
-            total_vfd_post_fiscal_receipt(sinv_doc, method)
+            total_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
         
         elif vfd_provider.name == "SimplifyVFD":
             simplify_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
@@ -102,7 +108,7 @@ def posting_all_vfd_invoices():
                 vfdplus_post_fiscal_receipt(doc, "POST")
             
             elif vfd_provider.name == "TotalVFD":
-                total_vfd_post_fiscal_receipt(doc, "POST")
+                total_vfd_post_fiscal_receipt(doc=doc, method="POST")
             
             elif vfd_provider.name == "SimplifyVFD":
                 simplify_vfd_post_fiscal_receipt(doc=doc, method="POST")
