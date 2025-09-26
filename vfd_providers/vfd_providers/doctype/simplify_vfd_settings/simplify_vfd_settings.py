@@ -237,12 +237,11 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
     doc.vfd_date = doc.vfd_date or nowdate()
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
     
-    # if not payload:
-    #     payload = get_payload(doc)
-    
-    # frappe.throw(str(payload))
+    if not payload:
+        payload = get_payload(doc)
 
-    # payload = json.dumps(payload)
+        # Convert the payload to JSON string format because it is not comming from frontend where it is already in JSON string format
+        payload = json.dumps(payload)
 
     vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
 
