@@ -197,7 +197,7 @@ def post_fiscal_receipt(doc, method="POST"):
         "branch_id": "",
         "depart_id": "",
         "trans_no": doc.name,
-        "idate": doc.vfd_date,
+        "idate": str(doc.vfd_date),
         "itime": format_datetime(str(doc.vfd_time), "HH:mm:ss"),
         "customer_info": {
             "cust_name": doc.customer_name,
