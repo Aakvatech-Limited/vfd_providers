@@ -200,9 +200,9 @@ function show_vfd_preview_dialog(payload, frm) {
           method:
             "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.post_fiscal_receipt",
           args: {
-            invoice_id: frm.doc.name,
             method: "POST",
             payload: payload,
+            invoice_id: frm.doc.name
           },
           freeze: true,
           freeze_message: __("Sending to TRA..."),

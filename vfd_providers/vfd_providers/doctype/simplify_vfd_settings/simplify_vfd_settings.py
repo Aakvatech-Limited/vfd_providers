@@ -183,7 +183,7 @@ def get_payload(doc):
 
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] if doc.vfd_cust_id_type else "6"
     payload = {
-        "dateTime": str(doc.vfd_date),
+        "dateTime": str(doc.vfd_date or nowdate()),
         "customer": {
             "identificationType": vfd_cust_id_type_map[vfd_cust_id_type],
             "identificationNumber": doc.vfd_cust_id if vfd_cust_id_type != "6" else "",
@@ -237,10 +237,12 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
     doc.vfd_date = doc.vfd_date or nowdate()
     doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
     
-    if not payload:
-        payload = get_payload(doc)
+    # if not payload:
+    #     payload = get_payload(doc)
+    
+    # frappe.throw(str(payload))
 
-    payload = json.dumps(payload)
+    # payload = json.dumps(payload)
 
     vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
 
