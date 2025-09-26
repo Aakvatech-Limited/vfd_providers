@@ -90,6 +90,13 @@ function show_vfd_preview_dialog(payload, frm) {
   }
 
   const company_name = (frm.doc.company || "").toUpperCase();
+  let receipt_date = ''
+  if (payload.dateTime && !["None", "null", "Invalid date", "undefined"].includes(String(payload.dateTime))) {
+    const dt = frappe.datetime.str_to_obj(payload.dateTime);
+    receipt_date = frappe.datetime.str_to_user(frappe.datetime.obj_to_str(dt, "YYYY-MM-DD"));
+  } else {
+    receipt_date = frappe.datetime.nowdate();
+  }
 
   const receiptHTML = `
   <div class="vfd-preview-root">
@@ -101,7 +108,9 @@ function show_vfd_preview_dialog(payload, frm) {
       .vfd-title { font-size:17px; font-weight:600; margin:0 0 2px; }
       .vfd-subgrid { display:flex; flex-wrap:wrap; gap:16px; margin:4px 0 4px; }
       .vfd-box { flex:1 1 240px; }
-      .vfd-label { font-weight:500; padding: 0 16px 0 0;}
+      .vfd-row { display:flex; align-items:flex-start; margin:2px 0; }
+      .vfd-label { font-weight:500; width:110px; flex:0 0 110px; }
+      .vfd-value { flex:1 1 auto; }
       .vfd-topline { border-top:1px solid #e4e6e9; margin:16px 0 0; }
       .vfd-hr { height:1px; background:#e4e6e9; border:0; margin:12px 0 16px; }
       table.vfd-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; }
@@ -113,27 +122,25 @@ function show_vfd_preview_dialog(payload, frm) {
       .vfd-totals-row { display:flex; justify-content:space-between; padding:5px 0; }
       .vfd-totals-row.border { border-top:1px solid #d9dde2; }
       .vfd-totals-row.emph { font-size:13px; font-weight:600; border-top:1px solid #d9dde2; border-bottom:1px solid #d9dde2; margin-top:4px; }
-      .vfd-footer { margin-top:18px; font-size:11px; text-align:center; color:#666; }
+      .vfd-footer { margin-top:20px; font-size:11px; text-align:center; color:blue; }
       .vfd-receipt-banner { font-weight:600; font-size:12px; letter-spacing:1px; margin:0; }
       .vfd-header { margin-bottom:8px; }
     </style>
     <div class="vfd-center" style="margin-bottom:4px;">
       <div class="vfd-title">${frappe.utils.escape_html(company_name)}</div>
-      <div class="vfd-muted" style="font-size:11.5px;">TIN: ${frappe.utils.escape_html(frm.doc.tax_id || '-')}&nbsp;&nbsp;|&nbsp;&nbsp;RECEIPT DATE: ${frappe.utils.escape_html(payload.dateTime || 'None')}</div>
+      <div class="vfd-muted" style="font-size:11.5px;">TIN: ${frappe.utils.escape_html(frm.doc.tax_id || '-')}&nbsp;&nbsp;|&nbsp;&nbsp;RECEIPT DATE: ${frappe.utils.escape_html(receipt_date)}</div>
     </div>
     <hr class="vfd-hr" />
     <div class="vfd-subgrid">
-      <div class="vfd-box" style="padding-right:20px;">
-        <div style="font-weight:600; margin-bottom:4px; text-align:center;">CUSTOMER</div>
-        <div><span class="vfd-label">Name:</span> ${frappe.utils.escape_html(payload.customer?.name || '')}</div>
-        <div><span class="vfd-label">ID Type:</span> ${frappe.utils.escape_html(payload.customer?.identificationType || '')}</div>
-        <div><span class="vfd-label">ID No:</span> ${frappe.utils.escape_html(payload.customer?.identificationNumber || 'n/a')}</div>
-        <div><span class="vfd-label">VAT Reg No:</span> ${frappe.utils.escape_html(payload.customer?.vatRegistrationNumber || '')}</div>
+      <div class="vfd-box" style="padding-right:20px; font-size:11px;">
+        <div class="vfd-row"><span class="vfd-label">Customer Name:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.name || '')}</span></div>
+        <div class="vfd-row"><span class="vfd-label">Customer ID Type:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.identificationType || '')}</span></div>
+        <div class="vfd-row"><span class="vfd-label">Customer ID:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.identificationNumber || 'n/a')}</span></div>
+        <div class="vfd-row"><span class="vfd-label">VAT Reg No:</span><span class="vfd-value">${frappe.utils.escape_html(payload.customer?.vatRegistrationNumber || '')}</span></div>
       </div>
-      <div class="vfd-box" style="padding-left:40px; border-left:2px solid #e4e6e9;">
-        <div style="font-weight:600; margin-bottom:4px; text-align:center;">INVOICE</div>
-        <div><span class="vfd-label">ID No:</span> ${frappe.utils.escape_html(payload.partnerInvoiceId || frm.doc.name)}</div>
-        <div><span class="vfd-label">Amount Type:</span> ${frappe.utils.escape_html(payload.invoiceAmountType || '')}</div>
+      <div class="vfd-box" style="padding-left:40px; border-left:2px solid #e4e6e9; font-size:11px;">
+        <div class="vfd-row"><span class="vfd-label">Tax Type:</span><span class="vfd-value">${frappe.utils.escape_html(payload.invoiceAmountType || '')}</span></div>
+        <div class="vfd-row"><span class="vfd-label">Invoice ID:</span><span class="vfd-value">${frappe.utils.escape_html(payload.partnerInvoiceId || frm.doc.name)}</span></div>
       </div>
     </div>
     <div class="vfd-heading" style="margin-top:18px; text-align:center;">Purchased Items</div>
@@ -177,7 +184,7 @@ function show_vfd_preview_dialog(payload, frm) {
   </div>`;
 
   let d = new frappe.ui.Dialog({
-    title: __("VFD Preview"),
+    title: __("VFD Receipt Preview"),
     fields: [
       {
         fieldtype: "HTML",
@@ -239,4 +246,7 @@ function show_vfd_preview_dialog(payload, frm) {
     // <div class="vfd-center vfd-header">
     //   <p class="vfd-receipt-banner">*** START OF LEGAL RECEIPT ***</p>
     // </div>
+        // <div style="font-weight:600; margin-bottom:4px; text-align:center;">CUSTOMER</div>
+
+        // <div style="font-weight:600; margin-bottom:4px; text-align:center;">INVOICE</div>
     
