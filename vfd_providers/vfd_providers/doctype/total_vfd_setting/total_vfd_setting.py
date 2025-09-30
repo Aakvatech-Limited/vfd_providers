@@ -14,31 +14,30 @@ class TotalVFDSetting(Document):
     pass
 
 
-def post_fiscal_receipt(doc, method="POST"):
-    """Post fiscal receipt to Total VFD
+def get_payload(doc):
+    """Generate payload for Total VFD
     Parameters
     ----------
     doc : object
     Python object which is expected to be from Sales Invoice doctype.
-    method : str
-    Method name which is calling this function. e.g. POST, validate, on_update, etc.
 
     Returns
     -------
-    Nothing
+    payload : dict
+    Dictionary with payload for Total VFD
     """
     total_vfd_setting = frappe.get_doc("Total VFD Setting", doc.company)
-    doc.vfd_date = doc.vfd_date or nowdate()
-    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
 
     if total_vfd_setting.is_vat_grouped:
         vat_grouped = 1
     else:
         vat_grouped = 0
+        
     items = []
     total_amount = 0
     vat_group_totals = {}
     tax_map = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
+    
     for item in doc.items:
         vat_rate_id = frappe.get_cached_value(
             "Item Tax Template", item.item_tax_template, "vfd_taxcode"
@@ -87,9 +86,11 @@ def post_fiscal_receipt(doc, method="POST"):
                     "discount": 0.0,
                 }
             )
+
             total_amount += flt(vat_group_entry["total_price"], 2)
 
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] or "6"
+    
     payload = {
         "serial": total_vfd_setting.serial_id,
         "referenceNumber": doc.name,
@@ -102,13 +103,43 @@ def post_fiscal_receipt(doc, method="POST"):
         "payments": [
             {
                 "type": "invoice",
-                "amount": flt(total_amount, 2),
+                "amount": flt(total_amount, 2)
             }
         ],
         "items": items,
     }
+    return payload
 
-    payload = json.dumps(payload)
+
+@frappe.whitelist()
+def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
+    """Post fiscal receipt to Total VFD
+    Parameters
+    ----------
+    doc : object
+    Python object which is expected to be from Sales Invoice doctype.
+    method : str
+    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+
+    Returns
+    -------
+    Nothing
+    """
+
+    if not doc and not invoice_id:
+        frappe.throw(_("Sales Invoice is required!"))
+    
+    if not doc and invoice_id:
+        doc = frappe.get_doc("Sales Invoice", invoice_id)
+    
+    doc.vfd_date = doc.vfd_date or nowdate()
+    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
+
+    if not payload:
+        payload = get_payload(doc)
+
+        # Convert the payload to JSON string format because it is not comming from frontend where it is already in JSON string format
+        payload = json.dumps(payload)
 
     vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
 
@@ -133,12 +164,15 @@ def post_fiscal_receipt(doc, method="POST"):
         doc.vfd_rctvnum = data.get("rctvnum")
         doc.vfd_date = data.get("localDate")
         doc.vfd_time = data.get("localTime")
+        doc.vfd_posting_info = vfd_provider_posting_doc.name
         doc.save(ignore_permissions=True)
     elif method == "POST":
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_rctvnum", data.get("rctvnum")
         )
-        frappe.db.set_value("Sales Invoice", doc.name, "vfd_status", "Success")
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_status", "Success"
+        )
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_date", data.get("localDate")
         )
@@ -146,12 +180,13 @@ def post_fiscal_receipt(doc, method="POST"):
             "Sales Invoice", doc.name, "vfd_time", data.get("localTime")
         )
         frappe.db.set_value(
-            "Sales Invoice",
-            doc.name,
-            "vfd_verification_url",
-            data.get("verificationLink"),
+            "Sales Invoice", doc.name, "vfd_posting_info", vfd_provider_posting_doc.name
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_verification_url", data.get("verificationLink"),
         )
         frappe.db.commit()
+
     return data
 
 

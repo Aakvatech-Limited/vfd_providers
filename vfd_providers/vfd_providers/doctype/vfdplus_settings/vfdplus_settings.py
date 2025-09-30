@@ -146,27 +146,23 @@ def send_vfdplus_request(
     return data
 
 
-def post_fiscal_receipt(doc, method="POST"):
-    """Post fiscal receipt to VFDPlus
+def get_payload(doc):
+    """Generate payload for VFDPlus API
     Parameters
     ----------
     doc : object
-    Python object which is expected to be from VFDPlus Settings doctype.
-    method : str
-    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+    Python object which is expected to be from Sales Invoice doctype.
 
     Returns
     -------
-    Nothing
+    payload : dict
+    Dictionary with payload for VFDPlus API
     """
-    vfdplus_settings = frappe.get_doc("VFDPlus Settings", doc.company)
-    doc.vfd_date = doc.vfd_date or nowdate()
-    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
 
     cart_items = []
     total_amount = 0
-
     tax_map = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
+    
     for item in doc.items:
         vat_rate_id = frappe.get_cached_value(
             "Item Tax Template", item.item_tax_template, "vfd_taxcode"
@@ -175,7 +171,7 @@ def post_fiscal_receipt(doc, method="POST"):
         vat_rate_code = tax_map[vat_rate_id]
 
         sp = get_vat_amount(item, vat_rate_code, precision=2)
-        
+
         cart_items.append(
             {
                 "vat_rate_code": vat_rate_code,
@@ -192,13 +188,15 @@ def post_fiscal_receipt(doc, method="POST"):
         )
         total_amount += sp
 
+    vfdplus_settings = frappe.get_doc("VFDPlus Settings", doc.company)
+    
     payload = {
         "credential_code": vfdplus_settings.serial_code,
         "branch_id": "",
         "depart_id": "",
         "trans_no": doc.name,
-        "idate": doc.vfd_date,
-        "itime": format_datetime(str(doc.vfd_time), "HH:mm:ss"),
+        "idate": str(doc.vfd_date or nowdate()),
+        "itime": format_datetime(str(doc.vfd_time or nowtime()), "HH:mm:ss"),
         "customer_info": {
             "cust_name": doc.customer_name,
             "cust_id_type": doc.vfd_cust_id_type or "6",
@@ -228,6 +226,34 @@ def post_fiscal_receipt(doc, method="POST"):
         },
     }
 
+    return payload
+
+
+@frappe.whitelist()
+def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
+    """Post fiscal receipt to VFDPlus
+    Parameters
+    ----------
+    doc : object
+    Python object which is expected to be from VFDPlus Settings doctype.
+    method : str
+    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+
+    Returns
+    -------
+    data : dict
+    Dictionary with response from VFDPlus API
+    """
+
+    if not doc and not invoice_id:
+        frappe.throw(_("Sales Invoice is required!"))
+    
+    if not doc and invoice_id:
+        doc = frappe.get_doc("Sales Invoice", invoice_id)
+    
+    doc.vfd_date = doc.vfd_date or nowdate()
+    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
+
     payload = json.dumps(payload)
 
     vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
@@ -240,21 +266,45 @@ def post_fiscal_receipt(doc, method="POST"):
         vfd_provider_posting_doc=vfd_provider_posting_doc,
     )
 
-    doc.vfd_rctvnum = data["msg_data"].get("rctvnum")
-    doc.vfd_date = data["msg_data"].get("idate")
-    doc.vfd_time = data["msg_data"].get("itime")
-    doc.vfd_status = "Success"
-    doc.vfd_verification_url = f"https://verify.tra.go.tz/{doc.vfd_rctvnum}_{str(data['msg_data'].get('itime')).replace(':','')}"
-    doc.save()
-
     vfd_provider_posting_doc.sales_invoice = doc.name
     vfd_provider_posting_doc.rctnum = doc.vfd_rctvnum
     vfd_provider_posting_doc.date = doc.vfd_date
     vfd_provider_posting_doc.time = doc.vfd_time
     vfd_provider_posting_doc.save(ignore_permissions=True)
 
-    if not doc.is_auto_generate_vfd:
+    verification_url = f"https://verify.tra.go.tz/{doc.vfd_rctvnum}_{str(data['msg_data'].get('itime')).replace(':','')}"
+    
+    if method == "on_submit":
+        doc.vfd_status = "Success"
+        doc.vfd_rctvnum = data["msg_data"].get("rctvnum")
+        doc.vfd_date = data["msg_data"].get("idate")
+        doc.vfd_time = data["msg_data"].get("itime")
+        doc.vfd_verification_url = verification_url
+        doc.vfd_posting_info = vfd_provider_posting_doc.name
+        
+        doc.save()
+
+    elif method == "POST":
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_rctvnum", data["msg_data"].get("rctvnum")
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_status", "Success"
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_date", data["msg_data"].get("idate")
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_time", data["msg_data"].get("itime")
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_posting_info", vfd_provider_posting_doc.name
+        )
+        frappe.db.set_value(
+            "Sales Invoice", doc.name, "vfd_verification_url", verification_url
+        )
         frappe.db.commit()
+    
     return data
 
 

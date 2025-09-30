@@ -126,28 +126,9 @@ def get_refresh_token():
         doc.get_bearer_token()
 
 
-def post_fiscal_receipt(doc, method="POST"):
-    """Post fiscal receipt to Simplify VFD
-    Parameters
-    ----------
-    doc : object
-    Python object which is expected to be from Sales Invoice doctype.
-    method : str
-    Method name which is calling this function. e.g. POST, validate, on_update, etc.
-
-    Returns
-    -------
-    Nothing
-    """
-    simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
-    if (
-        simplify_vfd_settings.token_expires
-        and simplify_vfd_settings.token_expires <= now_datetime()
-    ):
-        simplify_vfd_settings.refresh_bearer_token()
-
-    doc.vfd_date = doc.vfd_date or nowdate()
-    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
+@frappe.whitelist()
+def get_payload(doc):
+    """Generate payload for Simplify VFD"""
 
     items = []
     total_amount = 0
@@ -183,7 +164,7 @@ def post_fiscal_receipt(doc, method="POST"):
 
         items.append(
             {
-                "description": f"{item.item_code} - {item.item_name}",
+                "description": f"{item.item_code} - {item.item_name}" if item.item_name != item.item_code else item.item_code,
                 "quantity": item.qty,
                 "unitAmount": unit_price,
                 "discountRate": 0.0,
@@ -202,7 +183,7 @@ def post_fiscal_receipt(doc, method="POST"):
 
     vfd_cust_id_type = doc.vfd_cust_id_type[:1] if doc.vfd_cust_id_type else "6"
     payload = {
-        "dateTime": str(doc.vfd_date),
+        "dateTime": str(doc.vfd_date or nowdate()),
         "customer": {
             "identificationType": vfd_cust_id_type_map[vfd_cust_id_type],
             "identificationNumber": doc.vfd_cust_id if vfd_cust_id_type != "6" else "",
@@ -217,7 +198,50 @@ def post_fiscal_receipt(doc, method="POST"):
         "partnerInvoiceId": doc.name,
     }
 
-    payload = json.dumps(payload)
+    return payload
+
+
+@frappe.whitelist()
+def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
+    """Post fiscal receipt to Simplify VFD
+    Parameters
+    ----------
+    doc : object
+    Python object which is expected to be from Sales Invoice doctype.
+    method : str
+    Method name which is calling this function. e.g. POST, validate, on_update, etc.
+    payload : dict
+    Payload to send to Simplify VFD API
+    invoice_id : str
+    Sales Invoice ID to post fiscal receipt for. If doc is not provided, this parameter is required.
+
+    Returns
+    -------
+    res_data : dict
+    Dictionary with response from Simplify VFD API
+    """
+
+    if not doc and not invoice_id:
+        frappe.throw(_("Sales Invoice is required!"))
+    
+    if not doc and invoice_id:
+        doc = frappe.get_doc("Sales Invoice", invoice_id)
+    
+    simplify_vfd_settings = frappe.get_doc("Simplify VFD Settings", doc.company)
+    if (
+        simplify_vfd_settings.token_expires
+        and simplify_vfd_settings.token_expires <= now_datetime()
+    ):
+        simplify_vfd_settings.refresh_bearer_token()
+
+    doc.vfd_date = doc.vfd_date or nowdate()
+    doc.vfd_time = format_datetime(str(nowtime()), "HH:mm:ss")
+    
+    if not payload:
+        payload = get_payload(doc)
+
+        # Convert the payload to JSON string format because it is not comming from frontend where it is already in JSON string format
+        payload = json.dumps(payload)
 
     vfd_provider_posting_doc = frappe.new_doc("VFD Provider Posting")
 
