@@ -276,11 +276,12 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
     vfd_provider_posting_doc.time = doc.vfd_time
     vfd_provider_posting_doc.save(ignore_permissions=True)
 
-    verification_url = f"https://verify.tra.go.tz/{doc.vfd_rctvnum}_{str(data['msg_data'].get('itime')).replace(':','')}"
-    
+    rctvnum = data["msg_data"].get("rctvnum")
+    verification_url = f"https://verify.tra.go.tz/{rctvnum}_{str(data['msg_data'].get('itime')).replace(':','')}"
+
     if method == "on_submit":
         doc.vfd_status = "Success"
-        doc.vfd_rctvnum = data["msg_data"].get("rctvnum")
+        doc.vfd_rctvnum = rctvnum
         doc.vfd_date = data["msg_data"].get("idate")
         doc.vfd_time = data["msg_data"].get("itime")
         doc.vfd_verification_url = verification_url
@@ -290,7 +291,7 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
 
     elif method == "POST":
         frappe.db.set_value(
-            "Sales Invoice", doc.name, "vfd_rctvnum", data["msg_data"].get("rctvnum")
+            "Sales Invoice", doc.name, "vfd_rctvnum", rctvnum
         )
         frappe.db.set_value(
             "Sales Invoice", doc.name, "vfd_status", "Success"
