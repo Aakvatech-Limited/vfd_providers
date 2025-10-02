@@ -296,7 +296,7 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
   if (vfd_provider === "VFDPlus") {
     method = "vfd_providers.vfd_providers.doctype.vfdplus_settings.vfdplus_settings.post_fiscal_receipt"
   } else if (vfd_provider === "TotalVFD") {
-    method = "vfd_providers.vfd_providers.doctype.total_vfd_settings.total_vfd_settings.post_fiscal_receipt"
+    method = "vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting.post_fiscal_receipt"
   } else if (vfd_provider === "SimplifyVFD") {
     method = "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.post_fiscal_receipt"
   }
