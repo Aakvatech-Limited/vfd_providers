@@ -202,7 +202,13 @@ def get_payload(doc):
 
 
 @frappe.whitelist()
-def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
+def post_fiscal_receipt(
+    doc=None,
+    method="POST",
+    payload={},
+    invoice_id=None,
+    preview=False
+):
     """Post fiscal receipt to Simplify VFD
     Parameters
     ----------
@@ -307,7 +313,8 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
             f"VFD Invoice ID: {res_data.get('invoiceId')}",
         )
         frappe.db.commit()
-    return res_data
+    
+    return {"data": res_data, "vfd_provider": "SimplifyVFD", "preview": preview}
 
 
 def send_simplify_vfd_request(

@@ -32,11 +32,12 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
         return
     
     vfd_provider_settings = vfd_provider.vfd_provider_settings
-
     if not vfd_provider_settings:
         return
+
+    preview = frappe.get_cached_value(vfd_provider_settings, sinv_doc.company, "enable_vfd_preview")
     
-    if caller == "Frontend":
+    if preview == 1 and caller == "Frontend":
         payload = {}
         if vfd_provider.name == "VFDPlus":
             payload = get_vfdplus_payload(sinv_doc)
@@ -49,17 +50,17 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
         else:
             frappe.throw(_("VFD Provider not supported"))
         
-        return {"payload": payload, "vfd_provider": vfd_provider.name}
+        return {"data": payload, "vfd_provider": vfd_provider.name, "preview": True}
+    
     else:
-
         if vfd_provider.name == "VFDPlus":
-            vfdplus_post_fiscal_receipt(doc=sinv_doc, method=method)
+            return vfdplus_post_fiscal_receipt(doc=sinv_doc, method=method)
         
         elif vfd_provider.name == "TotalVFD":
-            total_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
-        
+            return total_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
+
         elif vfd_provider.name == "SimplifyVFD":
-            simplify_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
+            return simplify_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
         else:
             frappe.throw(_("VFD Provider not supported"))
 
