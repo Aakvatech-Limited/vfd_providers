@@ -25,14 +25,17 @@
   "region",
   "street",
   "taxoffice",
-  "token_ackmsg",
+  "column_break_mtey",
+  "enable_vfd_preview",
   "vat_enabled",
+  "sandbox",
   "gc",
   "dev_type",
   "gov_reg_sdate",
   "gov_reg_edate",
-  "sandbox",
   "vfdplus_api_key",
+  "token_ackmsg",
+  "section_break_dhfv",
   "response"
  ],
  "fields": [
@@ -197,10 +200,27 @@
    "fieldtype": "Code",
    "label": "Response",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mtey",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "if ticked, VFD data will be preview before sending to TRA",
+   "fieldname": "enable_vfd_preview",
+   "fieldtype": "Check",
+   "label": "Enable VFD Preview",
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_break_dhfv",
+   "fieldtype": "Section Break"
   }
  ],
+ "grid_page_length": 50,
  "links": [],
- "modified": "2023-02-01 23:10:26.128318",
+ "modified": "2025-10-06 17:44:38.855866",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "VFDPlus Settings",
@@ -232,6 +252,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
