@@ -112,7 +112,13 @@ def get_payload(doc):
 
 
 @frappe.whitelist()
-def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
+def post_fiscal_receipt(
+    doc=None,
+    method="POST",
+    payload={},
+    invoice_id=None,
+    preview=False
+):
     """Post fiscal receipt to Total VFD
     Parameters
     ----------
@@ -187,7 +193,7 @@ def post_fiscal_receipt(doc=None, method="POST", payload={}, invoice_id=None):
         )
         frappe.db.commit()
 
-    return data
+    return {"data": data, "vfd_provider": "TotalVFD", "preview": preview}
 
 
 def send_total_vfd_request(
