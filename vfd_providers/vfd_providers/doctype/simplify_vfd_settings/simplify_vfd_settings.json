@@ -13,6 +13,8 @@
   "username",
   "column_break_qddy",
   "password",
+  "column_break_ffnr",
+  "enable_vfd_preview",
   "section_break_rklsa",
   "column_break_pdoy",
   "bearer_token",
@@ -86,10 +88,23 @@
   {
    "fieldname": "column_break_qddy",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ffnr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "if ticked, VFD data will be preview before sending to TRA",
+   "fieldname": "enable_vfd_preview",
+   "fieldtype": "Check",
+   "label": "Enable VFD Preview ",
+   "search_index": 1
   }
  ],
+ "grid_page_length": 50,
  "links": [],
- "modified": "2025-02-10 23:43:01.645045",
+ "modified": "2025-10-06 17:01:59.097037",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "Simplify VFD Settings",
@@ -121,6 +136,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

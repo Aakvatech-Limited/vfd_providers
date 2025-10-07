@@ -40,18 +40,25 @@ function _generate_vfd(frm) {
     freeze: true,
     freeze_message: __("Preparing VFD preview..."),
     callback: (r) => {
-      if (!r.message) {
-        frappe.msgprint(__("No payload returned from server"));
-        return;
-      }
 
-      let payload = r.message.payload
+      let data = r.message.data
       let vfd_provider = r.message.vfd_provider
-      show_vfd_preview_dialog(frm, payload, vfd_provider);
+      let preview = r.message.preview
+
+      if (data && !preview) {
+        frm.reload_doc();
+        frappe.show_alert({
+          message: __("VFD successfully sent to TRA"),
+          indicator: "green",
+        });
+      } else if (data && preview) {
+        show_vfd_preview_dialog(frm, data, vfd_provider);
+      } else if (!data) {
+        frappe.msgprint(__("VFD generation failed"));
+      }
     },
     error: () => {
-      frappe.dom.unfreeze();
-      frappe.msgprint(__("VFD Preview failed"));
+      frappe.msgprint(__("VFD generation failed"));
     },
   });
 }
@@ -159,18 +166,14 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
   (normalizedItems || []).forEach((item) => {
     const lineTotal = (item.unitAmount || 0) * (item.quantity || 0);
     totalIncl += lineTotal;
-    // STANDARD or VAT group code 'A' considered 18%
     const taxCode = (item.taxType || '').toUpperCase();
-    if (["STANDARD", "A"].includes(taxCode)) {
-      taxAmount += lineTotal * 0.18; // assumption based on VAT standard rate
-    }
-  });
+    const taxRate = ["STANDARD", "A"].includes(taxCode) ? 0.18 : 0;
 
-  // If payments total is present and differs slightly, trust payments amount
-  if (normalizedPayments && normalizedPayments.length) {
-    const pTotal = flt(normalizedPayments.reduce((a, p) => a + (p.amount || 0), 0));
-    if (pTotal) totalIncl = pTotal; // override to reflect actual payment total
-  }
+    if (taxRate) {
+      const netLineTotal = flt(lineTotal / (1 + taxRate));
+      taxAmount += lineTotal - netLineTotal;
+    } 
+  });
 
   let totalExcl = totalIncl - taxAmount;
 
@@ -327,7 +330,7 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
         .then((res) => {
             d.hide();
             frm.reload_doc();
-            if (res.message && res.message.success) {
+            if (res.message.data) {
               frappe.show_alert({
                 message: __("VFD successfully sent to TRA"),
                 indicator: "green",
@@ -339,13 +342,6 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
               });
             }
         })
-        .fail((e) => {
-          frappe.msgprint({
-            title: __("Error"),
-            message: __("Failed to send VFD to TRA"),
-            indicator: "red",
-          });
-        });
     },
     secondary_action_label: __("Close"),
     secondary_action() {

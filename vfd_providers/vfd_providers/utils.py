@@ -9,9 +9,9 @@ def get_vat_amount(item, vat_group, precision=0):
             (item.base_net_amount + item.get("distributed_discount_amount", 0)) == item.base_amount
         ):
             # both base amounts are same if the amount is exclusive of VAT
-            amount = item.base_net_amount * 1.18
+            amount = item.base_amount * 1.18
             if precision > 0:
-                vat_amount = flt((item.base_net_amount * 1.18), precision)
+                vat_amount = flt(amount, precision)
             else:
                 vat_amount = amount
         else:
