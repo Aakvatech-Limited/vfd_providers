@@ -166,18 +166,14 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
   (normalizedItems || []).forEach((item) => {
     const lineTotal = (item.unitAmount || 0) * (item.quantity || 0);
     totalIncl += lineTotal;
-    // STANDARD or VAT group code 'A' considered 18%
     const taxCode = (item.taxType || '').toUpperCase();
-    if (["STANDARD", "A"].includes(taxCode)) {
-      taxAmount += lineTotal * 0.18; // assumption based on VAT standard rate
-    }
-  });
+    const taxRate = ["STANDARD", "A"].includes(taxCode) ? 0.18 : 0;
 
-  // If payments total is present and differs slightly, trust payments amount
-  if (normalizedPayments && normalizedPayments.length) {
-    const pTotal = flt(normalizedPayments.reduce((a, p) => a + (p.amount || 0), 0));
-    if (pTotal) totalIncl = pTotal; // override to reflect actual payment total
-  }
+    if (taxRate) {
+      const netLineTotal = flt(lineTotal / (1 + taxRate));
+      taxAmount += lineTotal - netLineTotal;
+    } 
+  });
 
   let totalExcl = totalIncl - taxAmount;
 
