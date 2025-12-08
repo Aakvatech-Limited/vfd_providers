@@ -139,6 +139,10 @@ scheduler_events = {
         "*/15 * * * *": [
             "vfd_providers.utils.utils.posting_all_vfd_invoices",
         ],
+        "0 9 * * *": [
+            # Check for pending VFD invoices daily at 9 AM
+            "vfd_providers.utils.vfd_monitoring.check_and_alert_pending_vfd_invoices",
+        ],
     }
 }
 
