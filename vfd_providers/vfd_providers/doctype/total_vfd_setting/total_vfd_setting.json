@@ -19,7 +19,8 @@
   "start_date",
   "column_break_nabn",
   "is_vat_grouped",
-  "enable_vfd_preview"
+  "enable_vfd_preview",
+  "vfd_start_date"
  ],
  "fields": [
   {
@@ -93,11 +94,19 @@
    "fieldtype": "Check",
    "label": " Enable VFD Preview",
    "search_index": 1
+  },
+  {
+   "description": "A date to start sending invoices to Tax Authority",
+   "fieldname": "vfd_start_date",
+   "fieldtype": "Date",
+   "label": "VFD Start Date",
+   "reqd": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-06 17:35:34.157616",
+ "modified": "2026-02-27 16:57:29.734408",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "Total VFD Setting",
@@ -130,6 +139,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

@@ -26,9 +26,10 @@
   "street",
   "taxoffice",
   "column_break_mtey",
-  "enable_vfd_preview",
-  "vat_enabled",
   "sandbox",
+  "vat_enabled",
+  "enable_vfd_preview",
+  "vfd_start_date",
   "gc",
   "dev_type",
   "gov_reg_sdate",
@@ -216,11 +217,19 @@
   {
    "fieldname": "section_break_dhfv",
    "fieldtype": "Section Break"
+  },
+  {
+   "description": "A date to start sending invoices to Tax Authority",
+   "fieldname": "vfd_start_date",
+   "fieldtype": "Date",
+   "label": "VFD Start Date",
+   "reqd": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-06 17:44:38.855866",
+ "modified": "2026-02-27 16:56:50.760836",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "VFDPlus Settings",
@@ -253,6 +262,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

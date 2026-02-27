@@ -35,9 +35,25 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
     if not vfd_provider_settings:
         return
 
-    preview = frappe.get_cached_value(vfd_provider_settings, sinv_doc.company, "enable_vfd_preview")
+    settings_info = frappe.get_cached_value(
+        vfd_provider_settings,
+        sinv_doc.company,
+        ["enable_vfd_preview", "vfd_start_date"],
+        as_dict=True
+    )
+
+    if not settings_info.get("vfd_start_date"):
+        frappe.throw(_(f"Please set VFD Start Date in <b>{vfd_provider_settings}</b>"))
     
-    if preview == 1 and caller == "Frontend":
+    if frappe.utils.getdate(sinv_doc.posting_date) < settings_info.get("vfd_start_date"):
+        frappe.throw(
+            _(
+                f"VFD cannot be generated for Invoice before <b>{settings_info.get('vfd_start_date')}</b> \
+                as per the settings in <b>{vfd_provider_settings}</b>"
+            )
+        )
+    
+    if settings_info.get("enable_vfd_preview") == 1 and caller == "Frontend":
         payload = {}
         if vfd_provider.name == "VFDPlus":
             payload = get_vfdplus_payload(sinv_doc)
@@ -94,6 +110,15 @@ def posting_all_vfd_invoices():
         if not vfd_provider_settings:
             continue
 
+        vfd_start_date = frappe.get_cached_value(
+            vfd_provider_settings,
+            company,
+            "vfd_start_date"
+        )
+
+        if not vfd_start_date:
+            continue
+
         invoices = frappe.db.get_all(
             "Sales Invoice",
             filters={
@@ -102,6 +127,7 @@ def posting_all_vfd_invoices():
                 "is_not_vfd_invoice": 0,
                 "is_return": 0,
                 "vfd_status": ["not in", ["Not Sent", "Success"]],
+                "posting_date": [">=", vfd_start_date]
             }
         )
 

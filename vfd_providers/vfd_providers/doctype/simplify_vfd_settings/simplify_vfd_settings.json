@@ -11,10 +11,10 @@
   "details_section",
   "company",
   "username",
-  "column_break_qddy",
   "password",
   "column_break_ffnr",
   "enable_vfd_preview",
+  "vfd_start_date",
   "section_break_rklsa",
   "column_break_pdoy",
   "bearer_token",
@@ -86,10 +86,6 @@
    "label": "Get Token"
   },
   {
-   "fieldname": "column_break_qddy",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "column_break_ffnr",
    "fieldtype": "Column Break"
   },
@@ -100,11 +96,19 @@
    "fieldtype": "Check",
    "label": "Enable VFD Preview ",
    "search_index": 1
+  },
+  {
+   "description": "A date to start sending invoices to Tax Authority",
+   "fieldname": "vfd_start_date",
+   "fieldtype": "Date",
+   "label": "VFD Start Date",
+   "reqd": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-06 17:01:59.097037",
+ "modified": "2026-02-27 16:55:58.472828",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "Simplify VFD Settings",
@@ -137,6 +141,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
