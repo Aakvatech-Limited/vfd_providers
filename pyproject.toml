@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vfd_providers"
+dynamic = ["version"]
+description = "VFD Providers"
+authors = [
+    {name = "Aakvatech Limited", email = "info@aakvatech.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # frappe is installed via 'bench init'
+]
+
+[project.urls]
+Homepage = "https://github.com/aakvatech/vfd_providers"
+
+[tool.setuptools.dynamic]
+version = {attr = "vfd_providers.__version__"}
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+
+# These dependencies are only installed when developer mode is enabled
+[tool.bench.dev-dependencies]
+# package_name = "~=1.1.0"
