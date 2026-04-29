@@ -255,7 +255,7 @@ def send_total_vfd_request(
                 headers=headers,
                 timeout=500,
             )
-            if res.ok or res.status_code == 409 or res.status_code == 400:
+            if res.ok or res.status_code == 409 or ((json.loads(res.text).get("msg") or "") == "Reference number already used."):
                 data = json.loads(res.text) if res.ok else json.loads(res.text)["data"]
                 frappe.log_error(
                     title="Send Request OK",
