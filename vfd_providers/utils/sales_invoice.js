@@ -260,9 +260,9 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
       <thead>
         <tr>
           <th style="text-align:left;">Description</th>
-          <th style="text-align:center; width:60px;">Qty</th>
-          <th style="text-align:right; width:110px;">Unit Amount</th>
-          <th style="text-align:right; width:120px;">Total Amount</th>
+          <th style="text-align:center; width:50px;">Qty</th>
+          <th style="text-align:right; width:140px;">Unit Amount (Incl. VAT)</th>
+          <th style="text-align:right; width:140px;">Total Amount (Incl. VAT)</th>
         </tr>
       </thead>
       <tbody>
