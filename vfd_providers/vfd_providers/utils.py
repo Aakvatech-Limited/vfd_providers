@@ -2,27 +2,21 @@ import frappe
 from frappe.utils import flt
 
 def get_vat_amount(item, vat_group, precision=0):
-    vat_amount = 0
+    """
+    Calculates the VAT-inclusive line item total for TRA VFD payload.
+    Uses base_net_amount (in TZS) to account for all discounts (line & header).
+    """
+    # Net taxable amount in base currency (TZS) after all discounts
+    net_total_tzs = item.get("base_net_amount") if item.get("base_net_amount") is not None else item.base_amount
 
+    # Standard VAT Rate (18% - VAT Group 'A' or '1')
     if str(vat_group) in ["A", "1"]:
-        if (
-            (item.base_net_amount + item.get("distributed_discount_amount", 0)) == item.base_amount
-        ):
-            # both base amounts are same if the amount is exclusive of VAT
-            amount = item.base_amount * 1.18
-            if precision > 0:
-                vat_amount = flt(amount, precision)
-            else:
-                vat_amount = amount
-        else:
-            if precision > 0:
-                vat_amount = flt(item.base_amount, precision=2)
-            else:
-                vat_amount = item.base_amount
+        vat_inclusive_amount = net_total_tzs * 1.18
     else:
-        if precision > 0:
-            vat_amount = flt(item.base_amount, precision=2)
-        else:
-            vat_amount = item.base_amount
-    
-    return vat_amount
+        vat_inclusive_amount = net_total_tzs
+
+    # Format precision if requested
+    if precision > 0:
+        return flt(vat_inclusive_amount, precision)
+    return vat_inclusive_amount
+
