@@ -1,0 +1,13 @@
+# Semgrep ignore file. Creating it replaces semgrep's built-in defaults, so they are re-listed.
+.git/
+node_modules/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+frappe-semgrep-rules/
+
+# Test files
+**/test_*.py
+**/tests/
