@@ -4,3 +4,5 @@ app_publisher = "Aakvatech Limited"
 app_description = "VFD Providers"
 app_email = "info@aakvatech.com"
 app_license = "GPL"
+
+before_uninstall = "vfd_providers.uninstall.before_uninstall"
