@@ -1,5 +1,3 @@
-from . import __version__ as app_version
-
 app_name = "vfd_providers"
 app_title = "VFD Providers"
 app_publisher = "Aakvatech Limited"
@@ -129,9 +127,10 @@ doc_events = {
 # ---------------
 
 scheduler_events = {
-	"cron": {
+    "cron": {
         "*/10 * * * *": [
             "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_access_token",
+            "vfd_providers.vfd_providers.doctype.dirm_vfd_settings.dirm_vfd_settings.refresh_session_tokens",
         ],
         "0 */12 * * *": [
             "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.get_refresh_token",
