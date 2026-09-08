@@ -201,11 +201,12 @@ class TestDIRMVFDSettings(FrappeTestCase):
             frappe.ValidationError, get_settings_info, invoice, "DIRM VFD Settings"
         )
 
-    def test_batch_job_posts_an_invoice_that_was_never_sent(self):
-        # vfd_status defaults to "Not Sent", which is the whole point of the job:
-        # the user submitted the invoice without auto generation.
+    def test_batch_job_posts_a_pending_invoice(self):
         invoice = self.get_submitted_invoice()
         self.assertEqual(invoice.vfd_status, "Not Sent")
+        # An invoice waits at Not Sent until a cashier reconciles it, so the job
+        # only picks it up once an attempt has put it in Pending or Failed.
+        invoice.db_set("vfd_status", "Pending")
 
         frappe.get_doc(
             {
@@ -224,6 +225,30 @@ class TestDIRMVFDSettings(FrappeTestCase):
 
         self.assertEqual(
             frappe.db.get_value("Sales Invoice", invoice.name, "vfd_status"), "Success"
+        )
+
+    def test_batch_job_leaves_an_unsent_invoice_alone(self):
+        invoice = self.get_submitted_invoice()
+        self.assertEqual(invoice.vfd_status, "Not Sent")
+
+        frappe.get_doc(
+            {
+                "doctype": "Company VFD Provider",
+                "company": self.company,
+                "vfd_provider": self.provider.name,
+            }
+        ).insert(ignore_if_duplicate=True)
+        frappe.db.set_value(
+            "DIRM VFD Settings", self.company, "vfd_start_date", invoice.posting_date
+        )
+        frappe.clear_cache(doctype="DIRM VFD Settings")
+
+        with patch("requests.request", side_effect=self.answer_dirm) as request:
+            posting_all_vfd_invoices()
+
+        request.assert_not_called()
+        self.assertEqual(
+            frappe.db.get_value("Sales Invoice", invoice.name, "vfd_status"), "Not Sent"
         )
 
     def answer_dirm(self, **kwargs):
