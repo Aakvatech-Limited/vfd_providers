@@ -165,8 +165,9 @@ def posting_all_vfd_invoices():
                 "company": company,
                 "is_not_vfd_invoice": 0,
                 "is_return": 0,
-                # Not Sent covers invoices submitted without auto generation.
-                "vfd_status": ["!=", "Success"],
+                # Not Sent is left out on purpose: an invoice waits there until a
+                # cashier reconciles it and sends it by hand.
+                "vfd_status": ["not in", ["Not Sent", "Success"]],
                 "posting_date": [">=", vfd_start_date],
             },
         )
