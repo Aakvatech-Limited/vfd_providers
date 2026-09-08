@@ -7,8 +7,7 @@ import frappe
 import erpnext
 from frappe import _
 
-from frappe.utils import flt, nowdate, nowtime, format_datetime
-from frappe.utils.background_jobs import enqueue
+from frappe.utils import flt
 import json
 import re
 
@@ -134,7 +133,7 @@ def get_item_taxcode(item_tax_template=None, item_code=None, invoice_name=None):
 
     taxcode = None
     if item_tax_template:
-        vfd_taxcode = frappe.get_value(
+        vfd_taxcode = frappe.get_cached_value(
             "Item Tax Template", item_tax_template, "vfd_taxcode"
         )
         if vfd_taxcode:
