@@ -1,0 +1,165 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2026-09-07 10:00:00",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "company",
+  "email",
+  "password",
+  "vrn",
+  "column_break_dirm",
+  "enable_vfd_preview",
+  "vfd_start_date",
+  "is_vat_registered",
+  "token_section",
+  "token",
+  "column_break_token",
+  "token_type",
+  "token_expires",
+  "get_token"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 1
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_dirm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "if ticked, VFD data will be preview before sending to TRA",
+   "fieldname": "enable_vfd_preview",
+   "fieldtype": "Check",
+   "label": "Enable VFD Preview",
+   "search_index": 1
+  },
+  {
+   "description": "A date to start sending invoices to Tax Authority",
+   "fieldname": "vfd_start_date",
+   "fieldtype": "Date",
+   "label": "VFD Start Date",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "token_section",
+   "fieldtype": "Section Break",
+   "label": "Session Token"
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Password",
+   "label": "Token",
+   "length": 250,
+   "read_only": 1
+  },
+  {
+   "fieldname": "token_type",
+   "fieldtype": "Data",
+   "label": "Token Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_token",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token_expires",
+   "fieldtype": "Datetime",
+   "label": "Token Expires",
+   "read_only": 1
+  },
+  {
+   "fieldname": "get_token",
+   "fieldtype": "Button",
+   "label": "Get Token"
+  },
+  {
+   "description": "VAT registration number TRA holds for this DIRM VFD account",
+   "fieldname": "vrn",
+   "fieldtype": "Data",
+   "label": "VRN",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Read from DIRM VFD when a token is fetched. Receipts carry no VAT when this is off.",
+   "fieldname": "is_vat_registered",
+   "fieldtype": "Check",
+   "label": "Is VAT Registered",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-09-08 14:53:40.824521",
+ "modified_by": "Administrator",
+ "module": "VFD Providers",
+ "name": "DIRM VFD Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

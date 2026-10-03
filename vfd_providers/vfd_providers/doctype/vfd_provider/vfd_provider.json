@@ -9,10 +9,11 @@
  "engine": "InnoDB",
  "field_order": [
   "vfd_provider",
-  "base_url",
-  "column_break_iegqb",
   "vfd_provider_settings",
   "vfd_provider_controller",
+  "column_break_iegqb",
+  "sandbox",
+  "base_url",
   "section_break_idnrc",
   "attributes"
  ],
@@ -46,6 +47,7 @@
    "options": "VFD Provider Attribute"
   },
   {
+   "depends_on": "eval: doc.vfd_provider_settings",
    "fieldname": "base_url",
    "fieldtype": "Data",
    "label": "Base URL",
@@ -58,11 +60,20 @@
   {
    "fieldname": "section_break_idnrc",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.vfd_provider_settings",
+   "description": "If ticked, requests go to the provider test environment",
+   "fieldname": "sandbox",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Sandbox"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-01-29 11:24:25.376985",
+ "modified": "2026-09-07 18:16:25.578001",
  "modified_by": "Administrator",
  "module": "VFD Providers",
  "name": "VFD Provider",
@@ -82,6 +93,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
