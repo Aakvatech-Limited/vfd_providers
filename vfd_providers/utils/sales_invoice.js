@@ -77,6 +77,9 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
     const p = raw || {};
     // Customer object differences
     let customerObj = p.customer || {};
+    if (provider === "Pergamon") {
+      customerObj = {name: p.custName, idType: p.custIdType, idValue: p.custId};
+    }
     if (provider === "VFDPlus") {
       customerObj = p.customer_info || {};
     }
@@ -87,7 +90,7 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
     const vatRegistrationNumber = customerObj.vatRegistrationNumber || customerObj.cust_vrn || customerObj.vrn || '';
 
     // Invoice / reference id key differences
-    const partnerInvoiceId = p.partnerInvoiceId || p.trans_no || p.referenceNumber || frm.doc.name;
+    const partnerInvoiceId = p.partnerInvoiceId || p.traderInvoiceNo || p.trans_no || p.referenceNumber || frm.doc.name;
     const invoiceAmountType = p.invoiceAmountType || p.amountType || '';
 
     // Date / time differences
@@ -103,7 +106,9 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
 
     // Items arrays differences
     let items = [];
-    if (Array.isArray(p.items)) {
+    if (Array.isArray(p.salesItems)) {
+      items = p.salesItems.map(it => ({description: it.name || "", quantity: it.qty || 0, unitAmount: it.unitPrice || 0, taxType: it.taxCode || "", _raw: it}));
+    } else if (Array.isArray(p.items)) {
       items = p.items.map(it => ({
         description: it.description || it.name || it.item_name || '',
         quantity: it.quantity || it.qty || it.item_qty || 0,
@@ -123,7 +128,9 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
 
     // Payments arrays differences
     let payments = [];
-    if (Array.isArray(p.payments)) {
+    if (provider === "Pergamon") {
+      payments = [{type: p.paymentType || "INVOICE", amount: p.totalAmount || 0}];
+    } else if (Array.isArray(p.payments)) {
       payments = p.payments.map(pm => ({
         type: pm.type || pm.pmt_type || '',
         amount: pm.amount || pm.pmt_amount || 0,
@@ -302,6 +309,8 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
     method = "vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting.post_fiscal_receipt"
   } else if (vfd_provider === "SimplifyVFD") {
     method = "vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings.post_fiscal_receipt"
+  } else if (vfd_provider === "Pergamon") {
+    method = "vfd_providers.vfd_providers.doctype.pergamon_vfd_settings.pergamon_vfd_settings.post_fiscal_receipt"
   }
 
   let d = new frappe.ui.Dialog({
@@ -330,7 +339,7 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
         .then((res) => {
             d.hide();
             frm.reload_doc();
-            if (res.message.data) {
+            if (res.message.verified !== false && res.message.data) {
               frappe.show_alert({
                 message: __("VFD successfully sent to TRA"),
                 indicator: "green",
