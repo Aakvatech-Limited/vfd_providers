@@ -141,7 +141,7 @@ def post_fiscal_receipt(doc=None, method="POST", payload=None, invoice_id=None, 
         fields=["name", "ackcode", "ackmsg"],
         order_by="creation desc", limit=1,
     )
-    if previous and str(doc.vfd_status) == "Pending":
+    if str(doc.vfd_status) == "Pending" or (previous and previous[0].ackcode == 0):
         frappe.throw(_("Previous Pergamon submission is unresolved. Reconcile the invoice using GET /invoices before resending."))
 
     posting = frappe.new_doc("VFD Provider Posting")
@@ -150,10 +150,20 @@ def post_fiscal_receipt(doc=None, method="POST", payload=None, invoice_id=None, 
     posting.time = nowtime()
     posting.req_headers = json.dumps({"Accept": "application/json", "Authorization": "[REDACTED]"})
     posting.req_data = json.dumps(body, ensure_ascii=False)
-    status, response = _api_request(settings, "POST", "/invoices", body)
-    posting.ackcode = status
-    posting.ackmsg = json.dumps(response, ensure_ascii=False)[:1000]
+    posting.ackcode = 0
+    posting.ackmsg = "Submission initiated; awaiting Pergamon response"
     posting.insert(ignore_permissions=True)
+    frappe.db.set_value("Sales Invoice", doc.name, {"vfd_posting_info": posting.name, "vfd_status": "Pending"}, update_modified=False)
+    # The external API can accept a receipt even when its response times out.
+    # Commit the intent before any network call so a retry cannot silently double-issue.
+    frappe.db.commit()
+    try:
+        status, response = _api_request(settings, "POST", "/invoices", body)
+    except requests.RequestException:
+        frappe.log_error(title="Pergamon VFD connection unresolved", message="Reconcile Sales Invoice " + doc.name + " with Pergamon before retry.")
+        frappe.throw(_("Pergamon response unavailable. Submission remains Pending; reconcile before retrying."))
+    posting.db_set("ackcode", status)
+    posting.db_set("ackmsg", json.dumps(response, ensure_ascii=False)[:1000])
 
     evidence = _receipt_evidence(response) if 200 <= status < 300 else None
     values = {"vfd_posting_info": posting.name, "vfd_status": "Success" if evidence else "Pending"}
