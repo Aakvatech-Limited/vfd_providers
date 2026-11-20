@@ -9,6 +9,10 @@ from vfd_providers.vfd_providers.doctype.total_vfd_setting.total_vfd_setting imp
     get_payload as get_total_vfd_payload,
     post_fiscal_receipt as total_vfd_post_fiscal_receipt
 )
+from vfd_providers.vfd_providers.doctype.pergamon_vfd_settings.pergamon_vfd_settings import (
+    get_payload as get_pergamon_payload,
+    post_fiscal_receipt as pergamon_post_fiscal_receipt
+)
 from vfd_providers.vfd_providers.doctype.simplify_vfd_settings.simplify_vfd_settings import (
     get_payload as get_simplify_payload,
     post_fiscal_receipt as simplify_vfd_post_fiscal_receipt
@@ -63,6 +67,8 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
         
         elif vfd_provider.name == "SimplifyVFD":
             payload = get_simplify_payload(sinv_doc)
+        elif vfd_provider.name == "Pergamon":
+            payload = get_pergamon_payload(sinv_doc)
         else:
             frappe.throw(_("VFD Provider not supported"))
         
@@ -77,6 +83,8 @@ def generate_tra_vfd(docname, sinv_doc=None, method="POST", caller="Frontend"):
 
         elif vfd_provider.name == "SimplifyVFD":
             return simplify_vfd_post_fiscal_receipt(doc=sinv_doc, method=method)
+        elif vfd_provider.name == "Pergamon":
+            return pergamon_post_fiscal_receipt(doc=sinv_doc, method=method)
         else:
             frappe.throw(_("VFD Provider not supported"))
 
@@ -142,6 +150,8 @@ def posting_all_vfd_invoices():
             
             elif vfd_provider.name == "SimplifyVFD":
                 simplify_vfd_post_fiscal_receipt(doc=doc, method="POST")
+            elif vfd_provider.name == "Pergamon":
+                pergamon_post_fiscal_receipt(doc=doc, method="POST")
 
             else:
                 continue
