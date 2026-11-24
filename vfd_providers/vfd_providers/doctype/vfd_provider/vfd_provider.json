@@ -9,6 +9,7 @@
  "engine": "InnoDB",
  "field_order": [
   "vfd_provider",
+  "sandbox",
   "base_url",
   "column_break_iegqb",
   "vfd_provider_settings",
@@ -58,6 +59,15 @@
   {
    "fieldname": "section_break_idnrc",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.vfd_provider_settings",
+   "description": "If ticked, requests go to the provider test environment",
+   "fieldname": "sandbox",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Sandbox"
   }
  ],
  "index_web_pages_for_search": 1,
