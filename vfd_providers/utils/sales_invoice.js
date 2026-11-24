@@ -1,5 +1,90 @@
 frappe.ui.form.on("Sales Invoice", {
-  refresh: function (frm) {},
+  refresh: function (frm) {
+    if (frm.is_new() || frm.doc.docstatus !== 1) return;
+    frappe.db.get_value("Company VFD Provider", frm.doc.company, "vfd_provider")
+      .then((companyProvider) => {
+        const name = companyProvider.message && companyProvider.message.vfd_provider;
+        if (!name) return;
+        return frappe.db.get_value("VFD Provider", name, "vfd_provider_settings")
+          .then((provider) => {
+            if (!provider.message || provider.message.vfd_provider_settings !== "Pergamon VFD Settings") return;
+            frm.add_custom_button(__("Lookup Pergamon Receipt"), () => {
+              frappe.prompt(
+                [{
+                  fieldname: "provider_invoice_id",
+                  fieldtype: "Data",
+                  label: __("Pergamon Invoice ID"),
+                  reqd: 1,
+                  description: __("Enter the Pergamon-generated invoice ID, not the ERPNext invoice number unless confirmed by the provider."),
+                }],
+                (values) => {
+                  frappe.call({
+                    method: "vfd_providers.vfd_providers.doctype.pergamon_vfd_settings.pergamon_vfd_settings.get_pergamon_invoice",
+                    args: { provider_invoice_id: values.provider_invoice_id, sales_invoice: frm.doc.name },
+                    freeze: true,
+                    freeze_message: __("Retrieving Pergamon receipt..."),
+                  }).then((response) => {
+                    const result = response.message || {};
+                    const summary = [
+                      __("Found at Pergamon: {0}", [result.found ? __("Yes") : __("No")]),
+                      __("Verified against ERPNext: {0}", [result.verified ? __("Yes") : __("No")]),
+                      __("Reference matches: {0}", [result.reference_matches ? __("Yes") : __("No")]),
+                      __("Amount matches: {0}", [result.amount_matches ? __("Yes") : __("No")]),
+                      __("Currency is TZS: {0}", [result.currency_matches ? __("Yes") : __("No")]),
+                      __("Verification code: {0}", [frappe.utils.escape_html(String(result.verification_code || "-"))]),
+                      __("Verification URL: {0}", [frappe.utils.escape_html(String(result.verification_url || "-"))]),
+                    ].join("<br>");
+                    frappe.msgprint({
+                      title: __("Pergamon Receipt Lookup"),
+                      message: summary,
+                      indicator: result.verified ? "green" : "orange",
+                    });
+                  }).catch(show_vfd_request_error);
+                },
+                __("Lookup Pergamon Receipt"),
+                __("Lookup")
+              );
+            }, __("VFD"));
+            if (frappe.user.has_role("System Manager") || frappe.user.has_role("Accounts Manager") ||
+                frappe.user.has_role("Sales Manager")) {
+              frm.add_custom_button(__("Pergamon Invoice Register"), () => {
+                frappe.call({
+                  method: "vfd_providers.vfd_providers.doctype.pergamon_vfd_settings.pergamon_vfd_settings.list_pergamon_invoices",
+                  args: {sales_invoice: frm.doc.name},
+                  freeze: true,
+                  freeze_message: __("Retrieving Pergamon invoice register..."),
+                }).then((res) => {
+                  const data = res.message || {};
+                  const esc = value => frappe.utils.escape_html(String(value === undefined || value === null ? "" : value));
+                  const rows = (data.rows || []).map(row =>
+                    "<tr>" + [
+                      row.trader_invoice_no,
+                      row.erpnext_invoice,
+                      row.provider_amount,
+                      row.expected_tzs,
+                      row.currency,
+                      row.status,
+                    ].map(value => "<td style='padding:6px;border:1px solid #ddd'>" + esc(value) + "</td>").join("") + "</tr>"
+                  ).join("");
+                  const html = "<p>" + esc(data.message || "") + "</p>" +
+                    "<p>" + __("Records returned: {0}; matched ERPNext invoices: {1}", [
+                      data.count_returned || 0, data.matched_count || 0,
+                    ]) + "</p>" +
+                    "<div style='overflow:auto;max-height:420px'><table class='table table-bordered'>" +
+                    "<thead><tr><th>Trader Invoice</th><th>ERPNext Invoice</th><th>Provider TZS</th>" +
+                    "<th>ERPNext TZS</th><th>Currency</th><th>Status</th></tr></thead><tbody>" +
+                    rows + "</tbody></table></div>";
+                  frappe.msgprint({
+                    title: __("Pergamon Invoice Register (Read Only)"),
+                    message: html,
+                    wide: true,
+                  });
+                }).catch(show_vfd_request_error);
+              }, __("VFD"));
+            }
+          });
+      });
+  },
   generate_vfd: (frm) => {
     if (!frm.doc.vfd_cust_id) {
       frappe.msgprint({
@@ -31,6 +116,33 @@ frappe.ui.form.on("Sales Invoice", {
   },
 });
 
+function show_vfd_request_error(xhr) {
+  // Frappe returns frappe.throw messages in _server_messages; do not replace
+  // a useful validation error with the generic "VFD generation failed".
+  let message = "";
+  const response = (xhr && xhr.responseJSON) || {};
+  if (response._server_messages) {
+    try {
+      const messages = typeof response._server_messages === "string"
+        ? JSON.parse(response._server_messages)
+        : response._server_messages;
+      const last = Array.isArray(messages) ? messages[messages.length - 1] : null;
+      if (last) {
+        const detail = typeof last === "string" ? JSON.parse(last) : last;
+        message = detail.message || "";
+      }
+    } catch (e) {
+      // Some Frappe responses do not contain parseable structured messages.
+    }
+  }
+  message = message || response.message || response.exception || "";
+  frappe.msgprint({
+    title: __("VFD Generation Failed"),
+    message: message ? frappe.utils.escape_html(String(message)) : __("VFD generation failed. Please review the invoice details."),
+    indicator: "red",
+  });
+}
+
 function _generate_vfd(frm) {
   frappe.call({
     method: "vfd_providers.utils.utils.generate_tra_vfd",
@@ -45,7 +157,10 @@ function _generate_vfd(frm) {
       let vfd_provider = r.message.vfd_provider
       let preview = r.message.preview
 
-      if (data && !preview) {
+      if (data && !preview && r.message.success === false) {
+        frm.reload_doc();
+        frappe.msgprint(__("VFD generation failed. Review VFD Provider Posting."));
+      } else if (data && !preview) {
         frm.reload_doc();
         frappe.show_alert({
           message: __("VFD successfully sent to TRA"),
@@ -339,7 +454,7 @@ function show_vfd_preview_dialog(frm, payload, vfd_provider) {
         .then((res) => {
             d.hide();
             frm.reload_doc();
-            if (res.message.verified !== false && res.message.data) {
+            if (res.message.success !== false && res.message.verified !== false && res.message.data) {
               frappe.show_alert({
                 message: __("VFD successfully sent to TRA"),
                 indicator: "green",

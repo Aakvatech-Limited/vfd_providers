@@ -31,8 +31,9 @@
    "fieldtype": "Data",
    "options": "URL",
    "label": "API Base URL",
-   "reqd": 1,
-   "description": "HTTPS endpoint ending in /api/v1. Configure separately for each company."
+   "reqd": 0,
+   "description": "Legacy field retained for migration history; provider configuration is now used.",
+   "hidden": 1
   },
   {
    "fieldname": "username",
@@ -68,7 +69,9 @@
    "label": "Default Payment Type",
    "options": "CASH\nCHEQUE\nCCARD\nEMONEY\nINVOICE",
    "default": "INVOICE",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1,
+   "description": "Legacy field retained for migration history; provider configuration is now used."
   }
  ],
  "permissions": [

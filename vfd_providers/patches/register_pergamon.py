@@ -11,6 +11,7 @@ def execute():
             "doctype": "VFD Provider",
             "vfd_provider": "Pergamon",
             "vfd_provider_settings": "Pergamon VFD Settings",
+            "sandbox": 1,
             "vfd_provider_controller": "vfd_providers.vfd_providers.doctype.pergamon_vfd_settings.pergamon_vfd_settings",
             # Deliberately no embedded credentials or fixed server IP.
         })
