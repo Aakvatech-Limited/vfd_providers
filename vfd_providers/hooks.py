@@ -69,7 +69,7 @@ doctype_js = {
 # ------------
 
 # before_install = "vfd_providers.install.before_install"
-# after_install = "vfd_providers.install.after_install"
+after_install = "vfd_providers.patches.upgrade_pergamon.execute"
 
 # Uninstallation
 # ------------
