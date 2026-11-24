@@ -5,3 +5,4 @@
 
 vfd_providers.patches.custom_fields.vfd_providers_updated_custom_fields
 vfd_providers.patches.register_pergamon
+vfd_providers.patches.register_default_providers
